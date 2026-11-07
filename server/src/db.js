@@ -53,9 +53,17 @@ function initDb(path) {
       pdf_path TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS vistas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_reuniao TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
     CREATE INDEX IF NOT EXISTS idx_items_reuniao ON agenda_items(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_pres_reuniao ON presencas(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_notes_reuniao ON anotacoes_privadas(id_reuniao);
+    CREATE INDEX IF NOT EXISTS idx_vistas_reuniao ON vistas(id_reuniao);
   `)
   return db
 }

@@ -1,14 +1,21 @@
 import React, { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket.js'
 
 export default function PresentesTab({ idReuniao }) {
   const [presencas, setPresencas] = useState([])
+  const socket = useSocket(idReuniao)
   const load = async () => {
     const r = await fetch(`/api/reuniao/${idReuniao}/presencas`)
     setPresencas(await r.json().catch(()=>[]))
   }
   useEffect(()=>{ load() }, [idReuniao])
+  useEffect(()=>{
+    if(!socket) return
+    const on = () => load()
+    socket.on('presence_pending', on)
+    socket.on('presence_confirmed', on)
+    return ()=>{ socket.off('presence_pending', on); socket.off('presence_confirmed', on) }
+  }, [socket])
   const confirm = async (pid) => {
     await fetch(`/api/reuniao/${idReuniao}/presenca/${pid}/confirmar`, {method:'POST'})
     load()

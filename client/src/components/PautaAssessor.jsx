@@ -41,6 +41,10 @@ export default function PautaAssessor() {
   }
   useEffect(()=>{ if(id) load() }, [id])
   useEffect(()=>{
+    if(!id || !name || !profile || profile==='secretario') return
+    fetch(`/api/reuniao/${id}/presenca`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, profile }) }).catch(()=>{})
+  }, [id, name, profile])
+  useEffect(()=>{
     if(!socket) return
     const onStatus = () => load()
     const onNote = () => load()

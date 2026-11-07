@@ -102,4 +102,22 @@ router.get('/reuniao/:id/relatorio.pdf', async (req, res) => {
   res.send(buf)
 })
 
+router.post('/reuniao/:id/vista', (req, res) => {
+  const { itemId, names } = req.body
+  if (!itemId || !Array.isArray(names) || names.length===0) return res.status(400).json({ error:'itemId e names[] obrigatórios' })
+  const db = getDb()
+  db.prepare('DELETE FROM vistas WHERE id_reuniao=? AND item_id=?').run(String(req.params.id), String(itemId))
+  const ins = db.prepare('INSERT INTO vistas (id_reuniao,item_id,name) VALUES (?,?,?)')
+  names.forEach(n => ins.run(String(req.params.id), String(itemId), n))
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status:'vista' })
+  res.json({ ok:true })
+})
+
+router.get('/reuniao/:id/vistas', (req, res) => {
+  const rows = getDb().prepare('SELECT item_id,name FROM vistas WHERE id_reuniao=? ORDER BY item_id,name').all(String(req.params.id))
+  const out = {}
+  rows.forEach(r => { (out[r.item_id] = out[r.item_id] || []).push(r.name) })
+  res.json(out)
+})
+
 module.exports = router
