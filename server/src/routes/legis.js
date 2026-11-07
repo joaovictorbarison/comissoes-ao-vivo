@@ -19,7 +19,7 @@ router.get('/reuniao/:id', async (req, res) => {
 })
 
 router.get('/reuniao/:id/pauta', async (req, res) => {
-  const data = await fetchLegis(`/colegiado/reuniao/${req.params.id}/pauta`)
+  const data = await fetchLegis(`/colegiado/reuniao/${req.params.id}/pauta?size=500`)
   const items = data?.content ? data.content : (Array.isArray(data) ? data : [])
   res.json(items)
 })

@@ -16,12 +16,14 @@ router.get('/reuniao/:id', async (req, res) => {
   const db = getDb()
   // cache pauta from Legis if not already cached
   const cached = db.prepare('SELECT COUNT(*) c FROM agenda_items WHERE id_reuniao=?').get(id)
-  if (!cached || cached.c === 0) {
+  const needRefresh = !cached || cached.c <= 10
+  if (needRefresh) {
     const detail = await fetchLegis(`/colegiado/reuniao/${id}`) || {}
-    const pauta = await fetchLegis(`/colegiado/reuniao/${id}/pauta`) || []
+    const pauta = await fetchLegis(`/colegiado/reuniao/${id}/pauta?size=500`) || []
     const items = pauta.content ? pauta.content : (Array.isArray(pauta) ? pauta : [])
     db.prepare('INSERT OR REPLACE INTO sessions (id_reuniao, titulo, tipo, dt, local, assunto, status, raw) VALUES (?,?,?,?,?,?,?,?)')
       .run(id, detail.tituloReuniao||'', detail.tipoConvocacao||'', detail.dtReuniao||'', detail.local?.txNome||'', detail.txAssunto||'', detail.status?.txNome||'', JSON.stringify(detail))
+    db.prepare('DELETE FROM agenda_items WHERE id_reuniao=?').run(id)
     const ins = db.prepare('INSERT OR REPLACE INTO agenda_items (id, id_reuniao, nu_ordem, raw) VALUES (?,?,?,?)')
     items.forEach(it => ins.run(String(it.id), id, it.nuOrdem||0, JSON.stringify(it)))
   }

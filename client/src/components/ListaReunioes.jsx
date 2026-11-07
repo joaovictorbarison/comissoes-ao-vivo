@@ -1,4 +1,5 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import { useLegisApi } from '../hooks/useLegisApi.js'
 
 function formatDataBR(dt) {
@@ -58,7 +59,7 @@ export default function ListaReunioes() {
                   <a key={d.idDocumento} href={d.linkArquivoPDF || d.linkArquivo} target="_blank" rel="noreferrer" className="flex-1 text-center text-xs font-bold border border-blue-200 rounded-lg p-2 text-blue-800">{docLabel(d)}</a>
                 ))}
               </div>
-              <a href={`/reuniao/${m.idReuniao}`} className="block text-center mt-3 bg-alesp text-white rounded-lg p-3 font-bold">Ir para reunião</a>
+              <Link to={`/reuniao/${m.idReuniao}`} className="block text-center mt-3 bg-alesp text-white rounded-lg p-3 font-bold">Ir para reunião</Link>
             </div>
           </article>
           )
