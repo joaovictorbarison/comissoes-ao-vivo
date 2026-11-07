@@ -13,7 +13,7 @@ function createApp() {
   app.use(cors())
   app.use(express.json())
   app.get('/health', (req,res)=>res.json({ ok:true }))
-  app.use('/api', legisRoutes)
+  app.use('/api/legis', legisRoutes)
   app.use('/api', meetingRoutes)
   app.use(express.static(path.join(__dirname, '../../client/dist')))
   return app
