@@ -80,7 +80,10 @@ router.post('/reuniao/:id/presenca/:pid/confirmar', (req, res) => {
 router.post('/reuniao/:id/anotacao', (req, res) => {
   const { itemId, text, authorName, cabinetKey } = req.body
   if (!text?.trim() || !cabinetKey) return res.status(400).json({ error:'texto e cabinetKey obrigatórios' })
-  const info = getDb().prepare('INSERT INTO anotacoes_privadas (id_reuniao,item_id,text,author_name,cabinet_key) VALUES (?,?,?,?,?)').run(String(req.params.id), String(itemId), text.trim(), authorName||'', normalize(cabinetKey))
+  const depKey = normalize(cabinetKey)
+  const hasVinculo = getDb().prepare('SELECT id FROM vinculos WHERE id_reuniao=? AND deputado_key=? AND status=?').get(String(req.params.id), depKey, 'aceito')
+  if (!hasVinculo) return res.status(403).json({ error:'vínculo pendente ou recusado' })
+  const info = getDb().prepare('INSERT INTO anotacoes_privadas (id_reuniao,item_id,text,author_name,cabinet_key) VALUES (?,?,?,?,?)').run(String(req.params.id), String(itemId), text.trim(), authorName||'', depKey)
   // emit only to same room, front filters by cabinetKey
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('note_created', { idReuniao:req.params.id, itemId })
   res.json({ ok:true, id: info.lastInsertRowid })
@@ -132,6 +135,37 @@ router.get('/processo/:id/links', async (req, res) => {
   db.prepare('INSERT OR REPLACE INTO processo_links (id_processo, url_sem_papel, first_link, raw) VALUES (?,?,?,?)')
     .run(id, payload.urlSemPapel, payload.linksArquivosIniciais[0] || null, JSON.stringify(payload))
   res.json(payload)
+})
+
+router.post('/reuniao/:id/vinculo', (req, res) => {
+  const { assessorName, deputadoName } = req.body
+  if (!assessorName?.trim() || !deputadoName?.trim()) return res.status(400).json({ error:'assessorName e deputadoName obrigatórios' })
+  const aKey = normalize(assessorName), dKey = normalize(deputadoName)
+  const existing = getDb().prepare('SELECT id FROM vinculos WHERE id_reuniao=? AND assessor_key=? AND deputado_key=?').get(String(req.params.id), aKey, dKey)
+  if (existing) return res.json({ ok:true, id: existing.id, duplicate:true })
+  const info = getDb().prepare('INSERT INTO vinculos (id_reuniao, assessor_name, deputado_name, assessor_key, deputado_key) VALUES (?,?,?,?,?)').run(String(req.params.id), assessorName.trim(), deputadoName.trim(), aKey, dKey)
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('vinculo_changed', { idReuniao:req.params.id, id: info.lastInsertRowid })
+  res.json({ ok:true, id: info.lastInsertRowid })
+})
+
+router.get('/reuniao/:id/vinculos', (req, res) => {
+  const dKey = req.query.deputadoKey ? normalize(req.query.deputadoKey) : null
+  const rows = dKey
+    ? getDb().prepare('SELECT id, assessor_name, deputado_name, status FROM vinculos WHERE id_reuniao=? AND deputado_key=? ORDER BY created_at').all(String(req.params.id), dKey)
+    : getDb().prepare('SELECT id, assessor_name, deputado_name, status FROM vinculos WHERE id_reuniao=? ORDER BY created_at').all(String(req.params.id))
+  res.json(rows)
+})
+
+router.post('/reuniao/:id/vinculo/:vid/aceitar', (req, res) => {
+  getDb().prepare('UPDATE vinculos SET status=? WHERE id=? AND id_reuniao=?').run('aceito', Number(req.params.vid), String(req.params.id))
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('vinculo_changed', { idReuniao:req.params.id, id: req.params.vid })
+  res.json({ ok:true })
+})
+
+router.post('/reuniao/:id/vinculo/:vid/recusar', (req, res) => {
+  getDb().prepare('UPDATE vinculos SET status=? WHERE id=? AND id_reuniao=?').run('recusado', Number(req.params.vid), String(req.params.id))
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('vinculo_changed', { idReuniao:req.params.id, id: req.params.vid })
+  res.json({ ok:true })
 })
 
 module.exports = router

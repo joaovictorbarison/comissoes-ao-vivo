@@ -7,17 +7,19 @@ export default function Identificacao() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState('assessor')
   const [name, setName] = useState('')
+  const [deputado, setDeputado] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
   const submit = async (e) => {
     e.preventDefault()
     if (!name.trim()) { setError('Informe o nome.'); return }
+    if (profile === 'assessor' && !deputado.trim()) { setError('Informe o deputado que você assessora.'); return }
     if (profile === 'secretario') {
       const res = await fetch('/api/auth/secretario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password}) })
       if (!res.ok) { setError('Senha incorreta para secretário.'); return }
     }
-    setAuth(profile, name.trim())
+    setAuth(profile, name.trim(), profile==='assessor' ? deputado.trim() : null)
     navigate('/reunioes')
   }
 
@@ -33,6 +35,10 @@ export default function Identificacao() {
       </select>
       <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Seu nome</label>
       <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: Maria Silva" className="w-full border rounded-lg p-3 mb-4" />
+      {profile==='assessor' && (<>
+        <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Deputado(a) que você assessora</label>
+        <input value={deputado} onChange={e=>setDeputado(e.target.value)} placeholder="Ex.: Gil Diniz Bolsonaro" className="w-full border rounded-lg p-3 mb-4" />
+      </>)}
       {profile==='secretario' && (<>
         <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Senha do secretário</label>
         <input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full border rounded-lg p-3 mb-4" />
