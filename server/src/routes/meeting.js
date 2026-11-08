@@ -57,6 +57,7 @@ router.post('/reuniao/:id/item-ativo', (req, res) => {
 router.post('/reuniao/:id/presenca', (req, res) => {
   const { name, profile } = req.body
   if (!name?.trim()) return res.status(400).json({ error:'nome obrigatório' })
+  if (profile === 'assessor' || profile === 'secretario') return res.status(400).json({ error:'apenas deputados em presencas' })
   const key = normalize(name)
   const exists = getDb().prepare('SELECT id FROM presencas WHERE id_reuniao=? AND cabinet_key=?').get(String(req.params.id), key)
   if (exists) return res.json({ ok:true, id: exists.id, duplicate:true })
