@@ -11,3 +11,18 @@ test('tv shows active item readonly', async () => {
   expect(screen.queryByRole('button', {name:/Aprovado/i})).toBeFalsy()
   vi.unstubAllGlobals()
 })
+
+test('TV shows APROVADO and result label for terminal item', async () => {
+  const items = [
+    { id:'1', nuOrdem:1, status_oficial:'aprovado_relator', processoDadosView:{txDescricao:'PL 1/2026', txEmenta:'Primeiro'}},
+    { id:'2', nuOrdem:2, status_oficial:'pendente', processoDadosView:{txDescricao:'PL 2/2026', txEmenta:'Segundo'}}
+  ]
+  vi.stubGlobal('fetch', async (url) => {
+    if (String(url).includes('/vistas')) return { json: async () => ({}) }
+    return { json: async () => ({ items, active_item_id:null }) }
+  })
+  render(<MemoryRouter initialEntries={['/tv/1']}><Routes><Route path="/tv/:id" element={<TvDisplay />} /></Routes></MemoryRouter>)
+  expect((await screen.findAllByText(/APROVADO/)).length).toBeGreaterThan(0)
+  expect(screen.getByText(/PL 1\/2026/)).toBeTruthy()
+  vi.unstubAllGlobals()
+})
