@@ -3,34 +3,24 @@ import { useParams, Link } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket.js'
 import PresentesTab from './PresentesTab.jsx'
 
-const ACTIONS = [
-  {k:'em_discussao', label:'Em discussão'},
-  {k:'em_votacao', label:'Em votação'},
-  {k:'aprovado_relator', label:'Aprovado ✓'},
-  {k:'rejeitado_relator', label:'Rejeitado ✕'},
-  {k:'vista', label:'Vista'},
-  {k:'retirado', label:'Retirado'}
-]
-
 const ACTIONS_ALL = [
   {k:'em_discussao', label:'Em discussão'},
   {k:'em_votacao', label:'Em votação'},
   {k:'aprovado_relator', label:'Aprovado ✓'},
   {k:'rejeitado_relator', label:'Rejeitado ✕'},
-  {k:'aprovado_separado', label:'Aprovado voto em separado'},
   {k:'vista', label:'Vista'},
   {k:'retirado', label:'Retirado'}
 ]
 
 function cardClass(status) {
-  if (status==='aprovado_relator' || status==='aprovado_separado') return 'border-green-200 bg-green-50'
+  if (status==='aprovado_relator') return 'border-green-200 bg-green-50'
   if (status==='rejeitado_relator') return 'border-red-200 bg-red-50'
   if (status==='vista' || status==='retirado') return 'border-slate-300 bg-slate-50'
   return 'border-slate-200 bg-white'
 }
 function btnClass(actionKey, currentStatus) {
   if (actionKey!==currentStatus) return 'bg-slate-100 hover:bg-slate-200'
-  if (actionKey==='aprovado_relator' || actionKey==='aprovado_separado') return 'bg-green-200 text-green-900 font-bold'
+  if (actionKey==='aprovado_relator') return 'bg-green-200 text-green-900 font-bold'
   if (actionKey==='rejeitado_relator') return 'bg-red-200 text-red-900 font-bold'
   if (actionKey==='vista' || actionKey==='retirado') return 'bg-slate-300 text-slate-900 font-bold'
   if (actionKey==='em_discussao') return 'bg-yellow-200 text-yellow-900 font-bold'
@@ -42,7 +32,7 @@ export default function PautaSecretario() {
   const { id } = useParams()
   const [items, setItems] = useState([])
   const [presencas, setPresencas] = useState([])
-  const [vistaOpen, setVistaOpen] = useState(null) // itemId
+  const [vistaOpen, setVistaOpen] = useState(null)
   const [vistaSel, setVistaSel] = useState([])
   const [vistas, setVistas] = useState({})
   const socket = useSocket(id)
@@ -94,6 +84,8 @@ export default function PautaSecretario() {
     setVistaSel(s => s.includes(name) ? s.filter(n=>n!==name) : [...s, name])
   }
 
+  const deputadosPresentes = presencas.filter(p=>p.profile==='deputado')
+
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -104,15 +96,16 @@ export default function PautaSecretario() {
         <div>
           {items.map(it=>{
             const proc = it.processoDadosView||{}
+            const vote = (it.documentosVoto||[])[0] || {}
             const status = it.status_oficial||'pendente'
             const vistaList = vistas[it.id] || []
             return (
               <div key={it.id} className={`border-2 rounded-xl p-4 mb-3 ${cardClass(status)}`}>
                 <div className="flex items-baseline gap-3 flex-wrap">
-                  <span className="text-2xl font-black text-slate-900">Item {it.nuOrdem}</span>
-                  <span className="text-xl font-extrabold text-alesp">{proc.txDescricao}</span>
+                  <span className="text-2xl font-black text-slate-900">Item {it.nuOrdem} - {proc.txDescricao}</span>
                 </div>
                 <div className="font-bold mt-1 text-slate-800">{proc.txEmenta}</div>
+                <div className="text-sm text-slate-600 mt-1">Autor: {proc.txNomeAutores} {vote.autores && <>• Relator: {vote.autores} — <b>{vote.conclusao}</b></>}</div>
                 <div className="flex flex-wrap gap-2 mt-3">
                   {ACTIONS_ALL.map(a=>(<button key={a.k} onClick={()=>setStatus(it.id,a.k)} className={`rounded px-3 py-2 text-sm ${btnClass(a.k,status)}`}>{a.label}</button>))}
                 </div>
@@ -120,8 +113,8 @@ export default function PautaSecretario() {
                 {vistaOpen===it.id && (
                   <div className="mt-3 border border-slate-300 rounded-lg p-3 bg-white">
                     <div className="text-sm font-bold mb-2">Quem solicitou vista?</div>
-                    {presencas.length===0 && <div className="text-xs text-slate-500 mb-2">Nenhum parlamentar presente ainda. Aguarde a aba Presentes.</div>}
-                    {presencas.map(p=>(
+                    {deputadosPresentes.length===0 && <div className="text-xs text-slate-500 mb-2">Nenhum parlamentar presente ainda. Aguarde a aba Presentes.</div>}
+                    {deputadosPresentes.map(p=>(
                       <label key={p.id} className="flex items-center gap-2 text-sm py-1">
                         <input type="checkbox" checked={vistaSel.includes(p.name)} onChange={()=>toggleVistaName(p.name)} />
                         {p.name} <span className="text-slate-500">({p.profile})</span>
