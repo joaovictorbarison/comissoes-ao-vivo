@@ -60,10 +60,28 @@ function initDb(path) {
       name TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS processo_links (
+      id_processo TEXT PRIMARY KEY,
+      url_sem_papel TEXT,
+      first_link TEXT,
+      raw TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS vinculos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_reuniao TEXT NOT NULL,
+      assessor_name TEXT NOT NULL,
+      deputado_name TEXT NOT NULL,
+      assessor_key TEXT NOT NULL,
+      deputado_key TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pendente',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
     CREATE INDEX IF NOT EXISTS idx_items_reuniao ON agenda_items(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_pres_reuniao ON presencas(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_notes_reuniao ON anotacoes_privadas(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_vistas_reuniao ON vistas(id_reuniao);
+    CREATE INDEX IF NOT EXISTS idx_vinculos_reuniao ON vinculos(id_reuniao);
   `)
   return db
 }

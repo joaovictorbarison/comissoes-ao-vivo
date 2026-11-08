@@ -120,4 +120,17 @@ router.get('/reuniao/:id/vistas', (req, res) => {
   res.json(out)
 })
 
+router.get('/processo/:id/links', async (req, res) => {
+  const id = String(req.params.id)
+  const db = getDb()
+  const cached = db.prepare('SELECT raw FROM processo_links WHERE id_processo=?').get(id)
+  if (cached) return res.json(JSON.parse(cached.raw))
+  const det = await fetchLegis(`/processo/detalhes/principais/${id}`)
+  if (!det) return res.json({ urlSemPapel: null, linksArquivosIniciais: [] })
+  const payload = { urlSemPapel: det.urlSemPapel || null, linksArquivosIniciais: det.linksArquivosIniciais || [] }
+  db.prepare('INSERT OR REPLACE INTO processo_links (id_processo, url_sem_papel, first_link, raw) VALUES (?,?,?,?)')
+    .run(id, payload.urlSemPapel, payload.linksArquivosIniciais[0] || null, JSON.stringify(payload))
+  res.json(payload)
+})
+
 module.exports = router

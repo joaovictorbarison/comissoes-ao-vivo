@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket.js'
+import { useProcessoLinks } from '../hooks/useProcessoLinks.js'
+import { proposituraUrl, votoUrl } from '../lib/legisLinks.js'
 import PresentesTab from './PresentesTab.jsx'
 
 const ACTIONS_ALL = [
@@ -36,6 +38,7 @@ export default function PautaSecretario() {
   const [vistaSel, setVistaSel] = useState([])
   const [vistas, setVistas] = useState({})
   const socket = useSocket(id)
+  const linksMap = useProcessoLinks(items)
 
   const load = async () => {
     const r = await fetch(`/api/reuniao/${id}`)
@@ -99,13 +102,15 @@ export default function PautaSecretario() {
             const vote = (it.documentosVoto||[])[0] || {}
             const status = it.status_oficial||'pendente'
             const vistaList = vistas[it.id] || []
+            const pUrl = proposituraUrl(linksMap[proc.idProcesso])
+            const vUrl = votoUrl(vote)
             return (
               <div key={it.id} className={`border-2 rounded-xl p-4 mb-3 ${cardClass(status)}`}>
                 <div className="flex items-baseline gap-3 flex-wrap">
-                  <span className="text-2xl font-black text-slate-900">Item {it.nuOrdem} - {proc.txDescricao}</span>
+                  <span className="text-2xl font-black text-slate-900">Item {it.nuOrdem} - {pUrl ? <a href={pUrl} target="_blank" rel="noreferrer" className="text-alesp underline">{proc.txDescricao}</a> : <>{proc.txDescricao}</>}</span>
                 </div>
                 <div className="font-bold mt-1 text-slate-800">{proc.txEmenta}</div>
-                <div className="text-sm text-slate-600 mt-1">Autor: {proc.txNomeAutores} {vote.autores && <>• Relator: {vote.autores} — <b>{vote.conclusao}</b></>}</div>
+                <div className="text-sm text-slate-600 mt-1">Autor: {proc.txNomeAutores} {vote.autores && vote.conclusao && <>{vUrl ? <>• <a href={vUrl} target="_blank" rel="noreferrer" className="text-alesp underline">Relator: {vote.autores} — <b>{vote.conclusao}</b></a></> : <>• Relator: {vote.autores} — <b>{vote.conclusao}</b></>}</>}</div>
                 <div className="flex flex-wrap gap-2 mt-3">
                   {ACTIONS_ALL.map(a=>(<button key={a.k} onClick={()=>setStatus(it.id,a.k)} className={`rounded px-3 py-2 text-sm ${btnClass(a.k,status)}`}>{a.label}</button>))}
                 </div>
