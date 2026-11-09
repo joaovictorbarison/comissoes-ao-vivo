@@ -4,8 +4,9 @@ import { useSocket } from '../hooks/useSocket.js'
 
 function resultLabel(item, vistas) {
   const st = item?.status_oficial
-  if (st==='aprovado_relator') return 'APROVADO'
-  if (st==='rejeitado_relator') return 'REJEITADO'
+  if (st==='aprovado_relator' || st==='aprovado_simbolico') return 'APROVADO'
+  if (st==='rejeitado_relator' || st==='rejeitado_nominal') return 'REJEITADO'
+  if (st==='aprovado_nominal') return 'APROVADO'
   if (st==='retirado') return 'RETIRADO'
   if (st==='vista') {
     const names = vistas[item.id] || []
@@ -14,10 +15,10 @@ function resultLabel(item, vistas) {
   return null
 }
 function isTerminal(item) {
-  return ['aprovado_relator','rejeitado_relator','vista','retirado'].includes(item?.status_oficial)
+  return ['aprovado_relator','rejeitado_relator','aprovado_simbolico','aprovado_nominal','rejeitado_nominal','vista','retirado'].includes(item?.status_oficial)
 }
 function statusColor(status) {
-  if (status==='aprovado_relator') return 'bg-green-300 text-green-900'
+  if (status==='aprovado_relator' || status==='aprovado_simbolico' || status==='aprovado_nominal') return 'bg-green-300 text-green-900'
   if (status==='rejeitado_relator') return 'bg-red-300 text-red-900'
   if (status==='vista') return 'bg-orange-300 text-orange-900'
   if (status==='retirado') return 'bg-slate-400 text-slate-900'

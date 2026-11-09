@@ -98,6 +98,30 @@ function initDb(pathArg) {
     CREATE INDEX IF NOT EXISTS idx_notes_reuniao ON anotacoes_privadas(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_vistas_reuniao ON vistas(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_vinculos_reuniao ON vinculos(id_reuniao);
+    CREATE TABLE IF NOT EXISTS votacao_simbolica (
+      id_reuniao TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      deputados TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (id_reuniao, item_id)
+    );
+    CREATE TABLE IF NOT EXISTS votos_nominais (
+      id_reuniao TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      deputado_name TEXT NOT NULL,
+      voto TEXT NOT NULL,
+      outro_texto TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (id_reuniao, item_id, deputado_name)
+    );
+    CREATE TABLE IF NOT EXISTS anotacoes_secretario (
+      id_reuniao TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      texto TEXT NOT NULL DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (id_reuniao, item_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_votnom_reuniao ON votos_nominais(id_reuniao);
   `)
   try { db.exec('ALTER TABLE sessions ADD COLUMN iniciada INTEGER DEFAULT 0') } catch {}
   try { db.exec("ALTER TABLE presencas ADD COLUMN origem TEXT DEFAULT 'login'") } catch {}

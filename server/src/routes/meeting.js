@@ -320,4 +320,74 @@ router.delete('/vinculos/:vid', (req, res) => {
   res.json({ ok:true })
 })
 
+router.post('/reuniao/:id/votacao-simbolica', (req, res) => {
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
+  const { itemId } = req.body
+  const present = getDb().prepare('SELECT name FROM presencas WHERE id_reuniao=? AND confirmed=1 ORDER BY name').all(String(req.params.id)).map(r=>r.name)
+  getDb().prepare('INSERT OR REPLACE INTO votacao_simbolica (id_reuniao,item_id,deputados) VALUES (?,?,?)').run(String(req.params.id), String(itemId), JSON.stringify(present))
+  getDb().prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status="aprovado_simbolico"').run(String(req.params.id), String(itemId))
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status:'aprovado_simbolico' })
+  res.json({ ok:true, deputados: present })
+})
+
+router.get('/reuniao/:id/votacoes-simbolicas', (req, res) => {
+  const rows = getDb().prepare('SELECT item_id,deputados FROM votacao_simbolica WHERE id_reuniao=?').all(String(req.params.id))
+  const out = {}
+  rows.forEach(r=>{ out[r.item_id] = JSON.parse(r.deputados) })
+  res.json(out)
+})
+
+router.post('/reuniao/:id/voto-nominal', (req, res) => {
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
+  const { itemId, deputado, voto, outro } = req.body
+  if (!itemId || !deputado || !voto) return res.status(400).json({ error:'itemId deputado voto obrigatórios' })
+  if (!['favoravel','contrario','outro'].includes(voto)) return res.status(400).json({ error:'voto inválido' })
+  getDb().prepare('INSERT INTO votos_nominais (id_reuniao,item_id,deputado_name,voto,outro_texto) VALUES (?,?,?,?,?) ON CONFLICT(id_reuniao,item_id,deputado_name) DO UPDATE SET voto=excluded.voto, outro_texto=excluded.outro_texto').run(String(req.params.id), String(itemId), deputado, voto, outro||null)
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('voto_nominal_changed', { idReuniao:req.params.id, itemId })
+  res.json({ ok:true })
+})
+
+router.get('/reuniao/:id/votos-nominais/:itemId', (req, res) => {
+  const rows = getDb().prepare('SELECT deputado_name,voto,outro_texto FROM votos_nominais WHERE id_reuniao=? AND item_id=? ORDER BY deputado_name').all(String(req.params.id), String(req.params.itemId))
+  res.json(rows)
+})
+
+router.get('/reuniao/:id/votos-nominais', (req, res) => {
+  const rows = getDb().prepare('SELECT item_id,deputado_name,voto,outro_texto FROM votos_nominais WHERE id_reuniao=?').all(String(req.params.id))
+  const out = {}
+  rows.forEach(r=>{ (out[r.item_id]=out[r.item_id]||[]).push(r) })
+  res.json(out)
+})
+
+router.post('/reuniao/:id/votacao-nominal/finalizar', (req, res) => {
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
+  const { itemId, decisaoManual } = req.body
+  const votes = getDb().prepare('SELECT voto FROM votos_nominais WHERE id_reuniao=? AND item_id=?').all(String(req.params.id), String(itemId))
+  const fav = votes.filter(v=>v.voto==='favoravel').length
+  const contra = votes.filter(v=>v.voto==='contrario').length
+  const outro = votes.filter(v=>v.voto==='outro').length
+  const needsManual = outro >= 4
+  if (needsManual && !decisaoManual) return res.json({ ok:false, needsManual:true, outro })
+  const approved = decisaoManual ? (decisaoManual==='aprovado') : (fav > contra)
+  const status = approved ? 'aprovado_nominal' : 'rejeitado_nominal'
+  getDb().prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), String(itemId), status)
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status })
+  res.json({ ok:true, status, fav, contra, outro })
+})
+
+router.get('/reuniao/:id/anotacoes-secretario', (req, res) => {
+  const rows = getDb().prepare('SELECT item_id,texto FROM anotacoes_secretario WHERE id_reuniao=?').all(String(req.params.id))
+  const out = {}
+  rows.forEach(r=>{ out[r.item_id]=r.texto })
+  res.json(out)
+})
+
+router.post('/reuniao/:id/item-nota', (req, res) => {
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
+  const { itemId, texto } = req.body
+  if (!itemId) return res.status(400).json({ error:'itemId obrigatório' })
+  getDb().prepare('INSERT INTO anotacoes_secretario (id_reuniao,item_id,texto) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET texto=excluded.texto').run(String(req.params.id), String(itemId), texto||'')
+  res.json({ ok:true })
+})
+
 module.exports = router

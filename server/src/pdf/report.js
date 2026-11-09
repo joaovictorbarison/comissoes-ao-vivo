@@ -27,6 +27,9 @@ function statusTexto(item, encerrada, vistas) {
   const st = item.status_oficial
   if (st==='aprovado_relator') return 'aprovado o voto do relator'
   if (st==='rejeitado_relator') return 'rejeitado o voto do relator'
+  if (st==='aprovado_simbolico') return 'aprovado o voto do relator'
+  if (st==='aprovado_nominal') return 'aprovado o voto do relator - votação nominal'
+  if (st==='rejeitado_nominal') return 'rejeitado o voto do relator - votação nominal'
   if (st==='vista') {
     const names = vistas[item.id] || []
     return names.length ? `vista - ${names.join(', ')}` : 'vista'
@@ -53,20 +56,20 @@ function loadMeeting(idReuniao) {
   const vistasRows = db.prepare('SELECT item_id,name FROM vistas WHERE id_reuniao=? ORDER BY item_id,name').all(String(idReuniao))
   const vistas = {}
   vistasRows.forEach(r => { (vistas[r.item_id] = vistas[r.item_id] || []).push(r.name) })
-  return { db, sess, raw, items, pres, vistas, encerrada }
+  const simbolicas = {}
+  db.prepare('SELECT item_id,deputados FROM votacao_simbolica WHERE id_reuniao=?').all(String(idReuniao)).forEach(r=>{ simbolicas[r.item_id]=JSON.parse(r.deputados) })
+  const nominais = {}
+  db.prepare('SELECT item_id,deputado_name,voto,outro_texto FROM votos_nominais WHERE id_reuniao=? ORDER BY item_id,deputado_name').all(String(idReuniao)).forEach(r=>{ (nominais[r.item_id]=nominais[r.item_id]||[]).push(r) })
+  const notasSec = {}
+  db.prepare('SELECT item_id,texto FROM anotacoes_secretario WHERE id_reuniao=?').all(String(idReuniao)).forEach(r=>{ notasSec[r.item_id]=r.texto })
+  return { db, sess, raw, items, pres, vistas, encerrada, simbolicas, nominais, notasSec }
 }
 
-function cabecalho(doc, raw, encerrada) {
+function cabecalho(doc, raw) {
   const comissao = raw.solicitante || raw.colegiadosRelacionados?.map(c=>c.nome).join('; ') || ''
   let numTipo = ''
-  if (raw.tituloReuniao && /Reunião/i.test(raw.tituloReuniao)) {
-    numTipo = raw.tituloReuniao // ex.: "1ª Reunião Ordinária"
-  } else if (raw.nuReuniao != null) {
-    const tipo = raw.tipoConvocacao || 'Ordinária'
-    numTipo = `${raw.nuReuniao}ª Reunião ${tipo}`
-  } else {
-    numTipo = raw.tipoConvocacao || ''
-  }
+  if (raw.tituloReuniao && /Reunião/i.test(raw.tituloReuniao)) numTipo = raw.tituloReuniao
+  else if (raw.nuReuniao != null) numTipo = `${raw.nuReuniao}ª Reunião ${raw.tipoConvocacao || 'Ordinária'}`
   doc.fontSize(16).text(comissao, { align:'center' })
   doc.fontSize(12).text(formatBR(raw.dtReuniao), { align:'center' })
   doc.text(numTipo, { align:'center' })
@@ -76,9 +79,9 @@ function cabecalho(doc, raw, encerrada) {
 }
 
 async function generatePdf(idReuniao) {
-  const { db, sess, raw, items, pres, vistas, encerrada } = loadMeeting(idReuniao)
+  const { db, raw, items, pres, vistas, encerrada, simbolicas, nominais, notasSec } = loadMeeting(idReuniao)
   const buf = await renderPdf(doc => {
-    cabecalho(doc, raw, encerrada)
+    cabecalho(doc, raw)
     doc.moveDown()
     doc.fontSize(13).text('Presenças confirmadas')
     doc.fontSize(10)
@@ -94,7 +97,17 @@ async function generatePdf(idReuniao) {
       doc.text(`Autoria: ${proc.txNomeAutores || ''}`, { width: 515 })
       doc.text(`Relatoria: ${vote.autores || ''}`, { width: 515 })
       doc.text(`Voto: ${vote.conclusao || ''}`, { width: 515 })
-      doc.text(`Status: ${statusTexto(i, encerrada, vistas)}`, { width: 515 })
+      if (i.status_oficial==='aprovado_simbolico') {
+        const deps = simbolicas[i.id] || []
+        doc.text(`Status: Aprovado - votação simbólica: ${deps.join(', ')}`, { width: 515, lineGap: 3 })
+      } else {
+        doc.text(`Status: ${statusTexto(i, encerrada, vistas)}`, { width: 515, lineGap: 3 })
+      }
+      const nom = nominais[i.id] || []
+      if (nom.length) {
+        nom.forEach(v => doc.text(`• ${v.deputado_name}: ${v.voto === 'outro' ? `Outro: ${v.outro_texto||''}` : v.voto}`, { indent: 12, width: 503, lineGap: 3 }))
+      }
+      if (notasSec[i.id]) doc.text(`Anotação do secretário: ${notasSec[i.id]}`, { width: 515, lineGap: 3 })
       doc.moveDown(0.5)
     })
   })
@@ -103,7 +116,7 @@ async function generatePdf(idReuniao) {
 }
 
 async function generateAssessoriaPdf(idReuniao, cabinetKey) {
-  const { sess, raw, items, vistas, encerrada } = loadMeeting(idReuniao)
+  const { sess, raw, items, vistas, encerrada, simbolicas, nominais } = loadMeeting(idReuniao)
   const db = getDb()
   const titulo = encerrada ? 'Relatório Final da Reunião — Assessoria Parlamentar' : 'Relatório de Orientações da Assessoria para a Reunião'
   const withNotes = items.map(i => {
@@ -111,7 +124,7 @@ async function generateAssessoriaPdf(idReuniao, cabinetKey) {
     return { ...i, notes }
   })
   return renderPdf(doc => {
-    cabecalho(doc, raw, encerrada)
+    cabecalho(doc, raw)
     doc.fontSize(12).text(titulo, { align:'center' })
     doc.moveDown()
     doc.fontSize(13).text('Pauta e orientações')
@@ -123,7 +136,14 @@ async function generateAssessoriaPdf(idReuniao, cabinetKey) {
       doc.text(`Autoria: ${proc.txNomeAutores || ''}`, { width: 515 })
       doc.text(`Relatoria: ${vote.autores || ''}`, { width: 515 })
       doc.text(`Voto: ${vote.conclusao || ''}`, { width: 515 })
-      doc.text(`Status: ${statusTexto(i, encerrada, vistas)}`, { width: 515 })
+      if (i.status_oficial==='aprovado_simbolico') {
+        const deps = simbolicas[i.id] || []
+        doc.text(`Status: Aprovado - votação simbólica: ${deps.join(', ')}`, { width: 515 })
+      } else {
+        doc.text(`Status: ${statusTexto(i, encerrada, vistas)}`, { width: 515 })
+      }
+      const nom = nominais[i.id] || []
+      if (nom.length) nom.forEach(v=>doc.text(`• ${v.deputado_name}: ${v.voto}`, { indent: 12, width: 503 }))
       if (i.notes.length) {
         i.notes.forEach(n => doc.text(`Orientação — ${n.author_name}: ${n.text}`, { width: 515, lineGap: 3, indent: 12 }))
       }
