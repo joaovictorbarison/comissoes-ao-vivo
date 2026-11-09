@@ -1,7 +1,22 @@
 const { DatabaseSync } = require('node:sqlite')
+const fs = require('fs')
+const path = require('path')
 let _db = null
-function initDb(path) {
-  const db = new DatabaseSync(path || process.env.DB_PATH || './comissoes.db')
+function resolveDbPath(given) {
+  const p = given || process.env.DB_PATH || './comissoes.db'
+  try {
+    const dir = path.dirname(p)
+    if (dir && dir !== '.' && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  } catch {}
+  // Render free nao tem /data; cai para disco local se /data nao existir
+  try {
+    const dir = path.dirname(p)
+    if (dir.startsWith('/data') && !fs.existsSync(dir)) return './comissoes.db'
+  } catch {}
+  return p
+}
+function initDb(pathArg) {
+  const db = new DatabaseSync(resolveDbPath(pathArg))
   db.exec('PRAGMA journal_mode = WAL;')
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
