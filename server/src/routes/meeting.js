@@ -5,6 +5,10 @@ const { generatePdf, generateAssessoriaPdf } = require('../pdf/report.js')
 const router = express.Router()
 
 function normalize(name=''){ return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim() }
+function isEncerrada(id) {
+  const s = getDb().prepare('SELECT encerrada_em FROM sessions WHERE id_reuniao=?').get(String(id))
+  return !!(s && s.encerrada_em)
+}
 
 router.post('/auth/secretario', (req, res) => {
   const ok = req.body?.password === 'dac2027'
@@ -28,19 +32,23 @@ router.get('/reuniao/:id', async (req, res) => {
     items.forEach(it => ins.run(String(it.id), id, it.nuOrdem||0, JSON.stringify(it)))
   }
   const rows = db.prepare('SELECT raw FROM agenda_items WHERE id_reuniao=? ORDER BY nu_ordem ASC').all(id)
+  const sess = db.prepare('SELECT * FROM sessions WHERE id_reuniao=?').get(id) || {}
+  const encerrada = !!sess.encerrada_em
   const items = rows.map(r => {
     const it = JSON.parse(r.raw)
     const st = db.prepare('SELECT status FROM official_status WHERE id_reuniao=? AND item_id=?').get(id, String(it.id))
-    return { ...it, status_oficial: st?.status || 'pendente' }
+    let status = st?.status || 'pendente'
+    if (encerrada && ['pendente','em_discussao','em_votacao'].includes(status)) status = 'nao_deliberado'
+    return { ...it, status_oficial: status }
   })
-  const sess = db.prepare('SELECT * FROM sessions WHERE id_reuniao=?').get(id) || {}
-  res.json({ ...JSON.parse(sess.raw||'{}'), items, active_item_id: sess.active_item_id || null })
+  res.json({ ...JSON.parse(sess.raw||'{}'), items, active_item_id: sess.active_item_id || null, encerrada, iniciada: !!sess.iniciada })
 })
 
 router.post('/reuniao/:id/status', (req, res) => {
   const { itemId, status } = req.body
   const allowed = ['pendente','em_discussao','em_votacao','aprovado_relator','rejeitado_relator','aprovado_separado','vista','retirado']
   if (!allowed.includes(status)) return res.status(400).json({ error:'status inválido' })
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   const db = getDb()
   // garante linha de sessão antes de marcar iniciada
   db.prepare('INSERT OR IGNORE INTO sessions (id_reuniao) VALUES (?)').run(String(req.params.id))
@@ -62,6 +70,7 @@ router.post('/reuniao/:id/presenca', (req, res) => {
   const { name, profile } = req.body
   if (!name?.trim()) return res.status(400).json({ error:'nome obrigatório' })
   if (profile === 'assessor' || profile === 'secretario') return res.status(400).json({ error:'apenas deputados em presencas' })
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   const key = normalize(name)
   const exists = getDb().prepare('SELECT id FROM presencas WHERE id_reuniao=? AND cabinet_key=?').get(String(req.params.id), key)
   if (exists) return res.json({ ok:true, id: exists.id, duplicate:true })
@@ -70,18 +79,19 @@ router.post('/reuniao/:id/presenca', (req, res) => {
   res.json({ ok:true, id: info.lastInsertRowid })
 })
 
-router.get('/reuniao/:id/presencas', (req, res) => {
-  const rows = getDb().prepare('SELECT id,name,profile,confirmed FROM presencas WHERE id_reuniao=? ORDER BY created_at').all(String(req.params.id))
+router.get('/reuniao/:id/presencas', (req, res) => {  const rows = getDb().prepare('SELECT id,name,profile,confirmed FROM presencas WHERE id_reuniao=? ORDER BY created_at').all(String(req.params.id))
   res.json(rows.map(r=>({ id:r.id, name:r.name, profile:r.profile, confirmed: !!r.confirmed })))
 })
 
 router.post('/reuniao/:id/presenca/:pid/confirmar', (req, res) => {
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   getDb().prepare('UPDATE presencas SET confirmed=1 WHERE id=? AND id_reuniao=?').run(Number(req.params.pid), String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('presence_confirmed', { idReuniao:req.params.id, pid:req.params.pid })
   res.json({ ok:true })
 })
 
 router.delete('/reuniao/:id/presenca/:pid', (req, res) => {
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   getDb().prepare('DELETE FROM presencas WHERE id=? AND id_reuniao=?').run(Number(req.params.pid), String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('presence_confirmed', { idReuniao:req.params.id, pid:req.params.pid, deleted:true })
   res.json({ ok:true })
@@ -104,6 +114,18 @@ router.post('/reuniao/:id/iniciar', async (req, res) => {
   db.prepare('UPDATE sessions SET iniciada=1, encerrada_em=NULL WHERE id_reuniao=?').run(id)
   req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id })
   res.json({ ok:true, iniciada:true })
+})
+
+router.post('/reuniao/:id/encerrar', (req, res) => {
+  getDb().prepare("UPDATE sessions SET encerrada_em=datetime('now'), iniciada=1 WHERE id_reuniao=?").run(String(req.params.id))
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id })
+  res.json({ ok:true, encerrada:true })
+})
+
+router.post('/reuniao/:id/reabrir', (req, res) => {
+  getDb().prepare('UPDATE sessions SET encerrada_em=NULL, iniciada=1 WHERE id_reuniao=?').run(String(req.params.id))
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id })
+  res.json({ ok:true, encerrada:false })
 })
 
 router.post('/reuniao/:id/limpar', (req, res) => {
@@ -164,6 +186,7 @@ router.get('/reuniao/:id/relatorio-assessoria.pdf', async (req, res) => {
 router.post('/reuniao/:id/vista', (req, res) => {
   const { itemId, names } = req.body
   if (!itemId || !Array.isArray(names)) return res.status(400).json({ error:'itemId e names[] obrigatórios' })
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   const db = getDb()
   db.prepare('UPDATE sessions SET iniciada=1 WHERE id_reuniao=?').run(String(req.params.id))
   db.prepare('DELETE FROM vistas WHERE id_reuniao=? AND item_id=?').run(String(req.params.id), String(itemId))

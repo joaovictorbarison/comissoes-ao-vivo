@@ -26,6 +26,7 @@ function cardClass(status) {
   if (status==='retirado') return 'border-slate-400 bg-slate-200'
   if (status==='em_discussao') return 'border-yellow-300 bg-yellow-100'
   if (status==='em_votacao') return 'border-blue-300 bg-blue-100'
+  if (status==='nao_deliberado') return 'border-slate-300 bg-slate-100'
   return 'border-slate-200 bg-white'
 }
 function btnClass(actionKey, currentStatus) {
@@ -50,6 +51,7 @@ export default function PautaSecretario() {
   const [confirmClear, setConfirmClear] = useState(false)
   const [pendingAction, setPendingAction] = useState(null)
   const [iniciada, setIniciada] = useState(false)
+  const [encerrada, setEncerrada] = useState(false)
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
 
@@ -58,13 +60,8 @@ export default function PautaSecretario() {
     const j = await r.json()
     setItems(j.items || j || [])
     setMeeting(j)
-  }
-  const loadEstado = async () => {
-    const r = await fetch(`/api/sessoes`).catch(()=>null)
-    if (r) {
-      const j = await r.json().catch(()=>({}))
-      setIniciada(!!j[String(id)]?.iniciada)
-    }
+    setEncerrada(!!j.encerrada)
+    setIniciada(!!j.iniciada)
   }
   const loadPres = async () => {
     const r = await fetch(`/api/reuniao/${id}/presencas`)
@@ -73,6 +70,14 @@ export default function PautaSecretario() {
   const loadVistas = async () => {
     const r = await fetch(`/api/reuniao/${id}/vistas`)
     setVistas(await r.json().catch(()=>({})))
+  }
+  const loadEstado = async () => {
+    const r = await fetch(`/api/sessoes`).catch(()=>null)
+    if (r) {
+      const j = await r.json().catch(()=>({}))
+      setIniciada(!!j[String(id)]?.iniciada)
+      setEncerrada(!!j[String(id)]?.encerrada)
+    }
   }
   useEffect(()=>{ if(id){ load(); loadPres(); loadVistas(); loadEstado() } }, [id])
   useEffect(()=>{
@@ -87,7 +92,17 @@ export default function PautaSecretario() {
 
   const iniciar = async () => {
     await fetch(`/api/reuniao/${id}/iniciar`, {method:'POST'})
-    setIniciada(true)
+    setIniciada(true); setEncerrada(false)
+    load(); loadPres(); loadVistas(); loadEstado()
+  }
+  const encerrar = async () => {
+    await fetch(`/api/reuniao/${id}/encerrar`, {method:'POST'})
+    setEncerrada(true)
+    load(); loadPres(); loadVistas(); loadEstado()
+  }
+  const reabrir = async () => {
+    await fetch(`/api/reuniao/${id}/reabrir`, {method:'POST'})
+    setEncerrada(false); setIniciada(true)
     load(); loadPres(); loadVistas(); loadEstado()
   }
   const limpar = async () => {
@@ -97,14 +112,15 @@ export default function PautaSecretario() {
   }
 
   const applyStatus = async (item, status) => {
+    if (encerrada) return
     await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: item.id, status})})
     load()
   }
 
   const setStatus = async (item, status) => {
+    if (encerrada) return
     const itemId = item.id
     const current = item.status_oficial || 'pendente'
-    // Vista: sempre abre o painel com checkboxes pré-marcados, nunca apaga direto
     if (status==='vista') {
       if (current !== 'vista') {
         await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status})})
@@ -114,13 +130,11 @@ export default function PautaSecretario() {
       load(); loadVistas()
       return
     }
-    // Desfazer: clicar no mesmo botão volta para pendente
     if (status === current) {
       await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status:'pendente'})})
       load()
       return
     }
-    // Se item tem vista, pedir confirmação antes de trocar para outra ação final
     const hasVista = (vistas[itemId]||[]).length>0 || current==='vista'
     if (hasVista && ['aprovado_relator','rejeitado_relator','retirado'].includes(status)) {
       setPendingAction({ item, status })
@@ -132,7 +146,6 @@ export default function PautaSecretario() {
   const confirmPending = async () => {
     if (!pendingAction) return
     const { item, status } = pendingAction
-    // limpar vista antes de aplicar nova ação
     await fetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: item.id, names:[]})})
     await applyStatus(item, status)
     setPendingAction(null)
@@ -140,6 +153,7 @@ export default function PautaSecretario() {
   }
 
   const saveVista = async (itemId) => {
+    if (encerrada) return
     await fetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, names: vistaSel})})
     setVistaOpen(null)
     load(); loadVistas()
@@ -151,15 +165,18 @@ export default function PautaSecretario() {
 
   const deputadosPresentes = presencas.filter(p=>p.profile==='deputado')
   const comissaoNome = meeting?.solicitante || meeting?.colegiadosRelacionados?.map(c=>`${c.sigla} — ${c.nome}`).join('; ') || 'Painel do Secretário'
+  const meetingSuffix = encerrada ? ' - Reunião encerrada' : (iniciada ? ' - Reunião iniciada' : '')
 
   return (
     <div>
       <div className="flex items-center gap-2 flex-wrap justify-between">
-        <h1 className="text-lg font-extrabold text-alesp">{comissaoNome}</h1>
+        <h1 className="text-lg font-extrabold text-alesp">{comissaoNome}{meetingSuffix}</h1>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={iniciar} disabled={iniciada} className={`text-sm w-36 rounded-lg px-3 py-2 font-bold ${iniciada ? 'bg-green-600 text-white opacity-50 cursor-not-allowed' : 'bg-green-600 text-white'}`}>{iniciada ? 'Reunião iniciada' : 'Iniciar reunião'}</button>
-          <a href={`/api/reuniao/${id}/relatorio.pdf`} className="text-sm bg-yellow-400 text-slate-900 rounded-lg px-3 py-2 font-bold">Encerrar e baixar relatório final</a>
-          <button onClick={()=>setConfirmClear(true)} className="text-sm bg-red-600 text-white rounded-lg px-3 py-2 font-bold">Limpar dados</button>
+          {!iniciada && <button onClick={iniciar} className="text-sm w-36 rounded-lg px-3 py-2 font-bold bg-green-600 text-white">Iniciar reunião</button>}
+          {iniciada && !encerrada && <button onClick={encerrar} className="text-sm w-36 rounded-lg px-3 py-2 font-bold bg-red-600 text-white">Encerrar reunião</button>}
+          {encerrada && <button onClick={reabrir} className="text-sm w-36 rounded-lg px-3 py-2 font-bold bg-blue-600 text-white">Reabrir reunião</button>}
+          <a href={`/api/reuniao/${id}/relatorio.pdf`} className="text-sm bg-yellow-400 text-slate-900 rounded-lg px-3 py-2 font-bold">Baixar relatório</a>
+          <button onClick={()=>setConfirmClear(true)} className="text-sm bg-slate-700 text-white rounded-lg px-3 py-2 font-bold">Limpar dados</button>
           <Link to={`/tv/${id}`} target="_blank" className="text-sm bg-black text-white rounded-lg px-3 py-2 font-bold">📺 Ver TV (testar)</Link>
         </div>
       </div>
@@ -172,6 +189,7 @@ export default function PautaSecretario() {
             const vistaList = vistas[it.id] || []
             const pUrl = proposituraUrl(linksMap[proc.idProcesso])
             const vUrl = votoUrl(vote)
+            const statusLabel = status==='nao_deliberado' ? 'Não deliberado' : status
             return (
               <div key={it.id} className={`border-2 rounded-xl p-4 mb-3 ${cardClass(status)}`}>
                 <div className="flex items-baseline gap-3 flex-wrap">
@@ -181,10 +199,11 @@ export default function PautaSecretario() {
                 <div className="text-sm text-slate-600 mt-1">Autor: {proc.txNomeAutores}</div>
                 {vote.autores && vote.conclusao && <div className="text-sm text-slate-600 mt-1">{vUrl ? <a href={vUrl} target="_blank" rel="noreferrer" className="text-alesp underline">Relator: {vote.autores} — <b>{vote.conclusao}</b></a> : <>Relator: {vote.autores} — <b>{vote.conclusao}</b></>}</div>}
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {ACTIONS_ALL.map(a=>(<button key={a.k} onClick={()=>setStatus(it,a.k)} className={`rounded px-3 py-2 text-sm ${btnClass(a.k,status)}`}>{a.label}</button>))}
+                  {ACTIONS_ALL.map(a=>(<button key={a.k} disabled={encerrada} onClick={()=>setStatus(it,a.k)} className={`rounded px-3 py-2 text-sm ${btnClass(a.k,status)} ${encerrada?'opacity-40 cursor-not-allowed':''}`}>{a.label}</button>))}
                 </div>
                 {vistaList.length>0 && <div className="text-xs mt-2 text-slate-700">Vista solicitada por: {vistaList.join(', ')}</div>}
-                {vistaOpen===it.id && (
+                {status==='nao_deliberado' && <div className="text-xs mt-1 font-bold text-slate-600">Não deliberado</div>}
+                {vistaOpen===it.id && !encerrada && (
                   <div className="mt-3 border border-slate-300 rounded-lg p-3 bg-white">
                     <div className="text-sm font-bold mb-2">Quem solicitou vista?</div>
                     {deputadosPresentes.length===0 && <div className="text-xs text-slate-500 mb-2">Nenhum parlamentar presente ainda. Aguarde a aba Presentes.</div>}
@@ -203,7 +222,7 @@ export default function PautaSecretario() {
               </div>
             )
           })}
-          <a href={`/api/reuniao/${id}/relatorio.pdf`} className="block text-center bg-yellow-400 text-slate-900 font-bold rounded-xl p-3">Encerrar e baixar PDF final</a>
+          <a href={`/api/reuniao/${id}/relatorio.pdf`} className="block text-center bg-yellow-400 text-slate-900 font-bold rounded-xl p-3">Baixar relatório</a>
         </div>
         <div className="order-1 lg:order-2">
           <PresentesTab idReuniao={id} />
