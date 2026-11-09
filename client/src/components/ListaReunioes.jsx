@@ -46,7 +46,10 @@ export default function ListaReunioes() {
   const convocadas = list.filter(m => m.status?.txNome === 'Convocada' || !m.status)
 
   useEffect(()=>{
-    fetch('/api/sessoes').then(r=>r.json()).catch(()=>({})).then(setSessoes)
+    const load = () => fetch('/api/sessoes').then(r=>r.json()).catch(()=>({})).then(setSessoes)
+    load()
+    const t = setInterval(load, 5000)
+    return ()=>clearInterval(t)
   }, [])
 
   // Assessor: cria vínculo uma única vez (global) na página de reuniões

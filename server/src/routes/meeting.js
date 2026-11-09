@@ -42,6 +42,8 @@ router.post('/reuniao/:id/status', (req, res) => {
   const allowed = ['pendente','em_discussao','em_votacao','aprovado_relator','rejeitado_relator','aprovado_separado','vista','retirado']
   if (!allowed.includes(status)) return res.status(400).json({ error:'status inválido' })
   const db = getDb()
+  // garante linha de sessão antes de marcar iniciada
+  db.prepare('INSERT OR IGNORE INTO sessions (id_reuniao) VALUES (?)').run(String(req.params.id))
   db.prepare('UPDATE sessions SET iniciada=1 WHERE id_reuniao=?').run(String(req.params.id))
   db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), String(itemId), status)
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status })
@@ -115,6 +117,8 @@ router.post('/reuniao/:id/limpar', (req, res) => {
 })
 
 router.get('/sessoes', (req, res) => {
+  // backfill: reunião com algum status/vista mas iniciada=0 considerada iniciada (compat com dados antigos)
+  getDb().prepare('UPDATE sessions SET iniciada=1 WHERE iniciada=0 AND id_reuniao IN (SELECT DISTINCT id_reuniao FROM official_status)').run()
   const rows = getDb().prepare('SELECT id_reuniao, iniciada, encerrada_em FROM sessions').all()
   const out = {}
   rows.forEach(r => { out[r.id_reuniao] = { iniciada: !!r.iniciada, encerrada: !!r.encerrada_em } })
