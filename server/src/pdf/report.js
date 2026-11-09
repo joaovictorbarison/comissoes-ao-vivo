@@ -58,7 +58,15 @@ function loadMeeting(idReuniao) {
 
 function cabecalho(doc, raw, encerrada) {
   const comissao = raw.solicitante || raw.colegiadosRelacionados?.map(c=>c.nome).join('; ') || ''
-  const numTipo = raw.nuReuniao != null ? `${raw.nuReuniao}ª ${raw.tipoConvocacao || ''}`.trim() : (raw.tipoConvocacao||'')
+  let numTipo = ''
+  if (raw.tituloReuniao && /Reunião/i.test(raw.tituloReuniao)) {
+    numTipo = raw.tituloReuniao // ex.: "1ª Reunião Ordinária"
+  } else if (raw.nuReuniao != null) {
+    const tipo = raw.tipoConvocacao || 'Ordinária'
+    numTipo = `${raw.nuReuniao}ª Reunião ${tipo}`
+  } else {
+    numTipo = raw.tipoConvocacao || ''
+  }
   doc.fontSize(16).text(comissao, { align:'center' })
   doc.fontSize(12).text(formatBR(raw.dtReuniao), { align:'center' })
   doc.text(numTipo, { align:'center' })
