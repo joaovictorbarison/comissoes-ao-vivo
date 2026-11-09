@@ -84,18 +84,18 @@ export default function PresentesTab({ idReuniao }) {
     let cls, label, action
     if (!pres) { cls='bg-white';
       return (
-        <button key={p.nuMatriculaParlamentar||p.parlamentar} onClick={()=>marcarPresente(p.parlamentar)} className={`w-full text-left border rounded px-2 py-1 text-xs font-semibold text-slate-800 ${cls} hover:bg-slate-50`}>{p.parlamentar}</button>
+        <button key={p.nuMatriculaParlamentar||p.parlamentar} onClick={()=>marcarPresente(p.parlamentar)} className={`w-full text-left border rounded px-2 h-7 text-xs font-normal text-slate-800 ${cls} hover:bg-slate-50`}>{p.parlamentar}</button>
       )
     }
     if (pres.origem==='login' && !pres.confirmed) cls='bg-yellow-100 border-yellow-300'
     else if (pres.origem==='login' && pres.confirmed) cls='bg-green-200 border-green-400'
     else cls='bg-blue-100 border-blue-300' // manual confirmado
     return (
-      <div key={p.nuMatriculaParlamentar||p.parlamentar} className={`flex items-center justify-between border rounded px-2 py-1 text-xs ${cls}`}>
+      <div key={p.nuMatriculaParlamentar||p.parlamentar} className={`flex items-center justify-between border rounded px-2 h-7 text-xs font-normal ${cls}`}>
         <span>{p.parlamentar} {pres.origem==='login' && pres.confirmed ? '✓' : ''}</span>
         <span className="flex items-center gap-1">
-          {pres.origem==='login' && !pres.confirmed && <button onClick={()=>confirm(pres.id)} className="bg-alesp text-white rounded px-2 py-0.5 text-xs font-bold">Confirmar</button>}
-          <button onClick={()=>setConfirmDelete(pres)} className="bg-red-600 text-white rounded w-5 h-5 text-xs font-bold" title="Excluir">×</button>
+          {pres.origem==='login' && !pres.confirmed && <button onClick={()=>confirm(pres.id)} className="bg-alesp text-white rounded px-2 h-5 text-xs font-normal">Confirmar</button>}
+          <button onClick={()=>setConfirmDelete(pres)} className="bg-red-600 text-white rounded w-5 h-5 text-xs font-normal" title="Excluir">×</button>
         </span>
       </div>
     )
@@ -128,11 +128,11 @@ export default function PresentesTab({ idReuniao }) {
           <div className="grid gap-0.5">{extraNotInMembros.map(p=>{
             const cls = p.origem==='login' && !p.confirmed ? 'bg-yellow-100 border-yellow-300' : (p.origem==='login' && p.confirmed ? 'bg-green-200 border-green-400' : 'bg-blue-100 border-blue-300')
             return (
-              <div key={p.id} className={`flex items-center justify-between border rounded px-2 py-1 text-xs ${cls}`}>
+              <div key={p.id} className={`flex items-center justify-between border rounded px-2 h-7 text-xs font-normal ${cls}`}>
                 <span>{p.name}</span>
                 <span className="flex items-center gap-1">
-                  {p.origem==='login' && !p.confirmed && <button onClick={()=>confirm(p.id)} className="bg-alesp text-white rounded px-2 py-0.5 text-xs font-bold">Confirmar</button>}
-                  <button onClick={()=>setConfirmDelete(p)} className="bg-red-600 text-white rounded w-5 h-5 text-xs font-bold">×</button>
+                  {p.origem==='login' && !p.confirmed && <button onClick={()=>confirm(p.id)} className="bg-alesp text-white rounded px-2 h-5 text-xs">Confirmar</button>}
+                  <button onClick={()=>setConfirmDelete(p)} className="bg-red-600 text-white rounded w-5 h-5 text-xs">×</button>
                 </span>
               </div>
             )
