@@ -261,6 +261,8 @@ router.delete('/vinculos/:vid', (req, res) => {
   if (row) {
     getDb().prepare('DELETE FROM anotacoes_privadas WHERE author_name=? AND cabinet_key=?').run(row.assessor_name, row.deputado_key)
     getDb().prepare('DELETE FROM vinculos WHERE id=?').run(Number(req.params.vid))
+    req.app.get('io')?.to('reuniao:'+row.id_reuniao).emit('vinculo_changed', { idReuniao: row.id_reuniao, id: row.id })
+    req.app.get('io')?.to('reuniao:'+row.id_reuniao).emit('note_created', { idReuniao: row.id_reuniao })
   }
   res.json({ ok:true })
 })

@@ -74,7 +74,7 @@ export default function PautaAssessor() {
     if(!socket) return
     const onStatus = () => load()
     const onNote = () => load()
-    const onVinculo = () => loadVinculos()
+    const onVinculo = () => { loadVinculos(); load() }
     socket.on('official_status_changed', onStatus)
     socket.on('note_created', onNote)
     socket.on('vinculo_changed', onVinculo)
@@ -142,7 +142,7 @@ export default function PautaAssessor() {
               <div className="text-sm text-slate-600">Autor: {proc.txNomeAutores}</div>
               {vote.autores && vote.conclusao && <div className="text-sm text-slate-600">{vUrl ? <a href={vUrl} target="_blank" rel="noreferrer" className="text-alesp underline">Relator: {vote.autores} — <b>{vote.conclusao}</b></a> : <>Relator: {vote.autores} — <b>{vote.conclusao}</b></>}</div>}
               <div className="bg-amber-50 border border-dashed border-yellow-300 rounded-lg p-2 mt-3">
-                <div className="text-xs font-bold">🔒 Nota do assessor → deputado (privada)</div>
+                <div className="text-xs font-bold">Orientação da assessoria</div>
                 {notesFor(it.id).map(n=>(<div key={n.id} className="text-sm mt-1"><b>{n.author_name}:</b> {n.text}</div>))}
                 <div className="flex gap-2 mt-2">
                   <input value={drafts[it.id]||''} onChange={e=>setDrafts(d=>({...d,[it.id]:e.target.value}))} placeholder="Nova orientação/observação…" className="flex-1 border rounded-lg p-2 text-sm" />
