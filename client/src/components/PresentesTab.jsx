@@ -7,6 +7,7 @@ export default function PresentesTab({ idReuniao }) {
   const [presencas, setPresencas] = useState([])
   const [membros, setMembros] = useState([])
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [confirmClearAll, setConfirmClearAll] = useState(false)
   const [extraInputs, setExtraInputs] = useState([''])
   const [extraSug, setExtraSug] = useState({})
   const socket = useSocket(idReuniao)
@@ -56,6 +57,11 @@ export default function PresentesTab({ idReuniao }) {
   const doDelete = async (pid) => {
     await fetch(`/api/reuniao/${idReuniao}/presenca/${pid}`, {method:'DELETE'})
     setConfirmDelete(null)
+    load()
+  }
+  const doClearAll = async () => {
+    await fetch(`/api/reuniao/${idReuniao}/presencas`, {method:'DELETE'})
+    setConfirmClearAll(false)
     load()
   }
   const marcarPresente = async (nome) => {
@@ -111,7 +117,10 @@ export default function PresentesTab({ idReuniao }) {
 
   return (
     <div className="bg-white border rounded-xl p-3">
-      <h2 className="font-extrabold text-alesp mb-1 text-sm">Presentes</h2>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="font-extrabold text-alesp text-sm">Presentes</h2>
+        <button onClick={()=>setConfirmClearAll(true)} className="bg-slate-700 text-white rounded px-2 py-0.5 text-xs font-bold">Limpar presenças</button>
+      </div>
       {membros.length>0 && (
         <>
           <div className="text-[11px] font-bold text-slate-500 uppercase mb-0.5">Efetivos</div>
@@ -165,6 +174,18 @@ export default function PresentesTab({ idReuniao }) {
             <div className="flex gap-2 justify-end">
               <button onClick={()=>setConfirmDelete(null)} className="bg-slate-100 rounded px-4 py-2 text-sm">Cancelar</button>
               <button onClick={()=>doDelete(confirmDelete.id)} className="bg-red-600 text-white rounded px-4 py-2 text-sm font-bold">Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmClearAll && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-5 max-w-sm w-full mx-4">
+            <div className="font-bold mb-2">Limpar todas as presenças?</div>
+            <div className="text-sm text-slate-600 mb-4">Isso remove todos os presentes desta reunião.</div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={()=>setConfirmClearAll(false)} className="bg-slate-100 rounded px-4 py-2 text-sm">Cancelar</button>
+              <button onClick={doClearAll} className="bg-red-600 text-white rounded px-4 py-2 text-sm font-bold">Limpar</button>
             </div>
           </div>
         </div>

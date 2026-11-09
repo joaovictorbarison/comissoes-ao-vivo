@@ -92,6 +92,13 @@ router.get('/reuniao/:id/presencas', (req, res) => {  const rows = getDb().prepa
   res.json(rows.map(r=>({ id:r.id, name:r.name, profile:r.profile, confirmed: !!r.confirmed, origem: r.origem || 'login' })))
 })
 
+router.delete('/reuniao/:id/presencas', (req, res) => {
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
+  getDb().prepare('DELETE FROM presencas WHERE id_reuniao=?').run(String(req.params.id))
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('presence_confirmed', { idReuniao:req.params.id, cleared:true })
+  res.json({ ok:true })
+})
+
 router.post('/reuniao/:id/presenca/:pid/confirmar', (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   getDb().prepare('UPDATE presencas SET confirmed=1 WHERE id=? AND id_reuniao=?').run(Number(req.params.pid), String(req.params.id))
