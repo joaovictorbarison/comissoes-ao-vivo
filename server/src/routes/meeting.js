@@ -194,6 +194,16 @@ router.get('/processo/:id/links', async (req, res) => {
   res.json(payload)
 })
 
+router.post('/vinculos', (req, res) => {
+  const { assessorName, deputadoName } = req.body
+  if (!assessorName?.trim() || !deputadoName?.trim()) return res.status(400).json({ error:'assessorName e deputadoName obrigatórios' })
+  const aKey = normalize(assessorName), dKey = normalize(deputadoName)
+  const existing = getDb().prepare('SELECT id FROM vinculos WHERE assessor_key=? AND deputado_key=?').get(aKey, dKey)
+  if (existing) return res.json({ ok:true, id: existing.id, duplicate:true })
+  const info = getDb().prepare('INSERT INTO vinculos (assessor_name, deputado_name, assessor_key, deputado_key) VALUES (?,?,?,?)').run(assessorName.trim(), deputadoName.trim(), aKey, dKey)
+  res.json({ ok:true, id: info.lastInsertRowid })
+})
+
 router.post('/reuniao/:id/vinculo', (req, res) => {
   const { assessorName, deputadoName } = req.body
   if (!assessorName?.trim() || !deputadoName?.trim()) return res.status(400).json({ error:'assessorName e deputadoName obrigatórios' })
