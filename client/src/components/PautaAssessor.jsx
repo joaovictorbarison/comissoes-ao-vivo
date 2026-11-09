@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useSocket } from '../hooks/useSocket.js'
 import { useProcessoLinks } from '../hooks/useProcessoLinks.js'
 import { proposituraUrl, votoUrl } from '../lib/legisLinks.js'
+import AssessoresTab from './AssessoresTab.jsx'
 
 const STATUS_LABEL = {
   pendente: 'PENDENTE',
@@ -120,6 +121,8 @@ export default function PautaAssessor() {
           ))}
         </div>
       )}
+      <div className="grid lg:grid-cols-[1fr_300px] gap-4">
+        <div>
       {items.map(it => {
         const status = it.status_oficial || 'pendente'
         const proc = it.processoDadosView || it.processo || {}
@@ -150,6 +153,9 @@ export default function PautaAssessor() {
           </article>
         )
       })}
+        </div>
+        {profile==='deputado' && <AssessoresTab idReuniao={id} />}
+      </div>
     </div>
   )
 }

@@ -246,4 +246,23 @@ router.post('/reuniao/:id/vinculo/:vid/recusar', (req, res) => {
   res.json({ ok:true })
 })
 
+router.delete('/reuniao/:id/vinculo/:vid', (req, res) => {
+  const row = getDb().prepare('SELECT * FROM vinculos WHERE id=?').get(Number(req.params.vid))
+  if (row) {
+    getDb().prepare('DELETE FROM anotacoes_privadas WHERE author_name=? AND cabinet_key=?').run(row.assessor_name, row.deputado_key)
+    getDb().prepare('DELETE FROM vinculos WHERE id=?').run(Number(req.params.vid))
+  }
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('vinculo_changed', { idReuniao:req.params.id, id: req.params.vid })
+  res.json({ ok:true })
+})
+
+router.delete('/vinculos/:vid', (req, res) => {
+  const row = getDb().prepare('SELECT * FROM vinculos WHERE id=?').get(Number(req.params.vid))
+  if (row) {
+    getDb().prepare('DELETE FROM anotacoes_privadas WHERE author_name=? AND cabinet_key=?').run(row.assessor_name, row.deputado_key)
+    getDb().prepare('DELETE FROM vinculos WHERE id=?').run(Number(req.params.vid))
+  }
+  res.json({ ok:true })
+})
+
 module.exports = router

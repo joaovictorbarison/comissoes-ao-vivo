@@ -106,7 +106,6 @@ export default function TvDisplay() {
         <div className="text-xl font-bold mt-2">{proc.txEmenta}</div>
         <div className="text-sm opacity-80 mt-3">Autor: {proc.txNomeAutores}</div>
         {vote.autores && vote.conclusao && <div className="text-sm opacity-80">Relator: {vote.autores} — {vote.conclusao}</div>}
-        {label && <div className="text-xl font-black mt-3 text-yellow-300">{label}</div>}
       </div>
     </div>
   )
