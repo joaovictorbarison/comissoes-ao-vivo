@@ -84,17 +84,17 @@ export default function PresentesTab({ idReuniao }) {
     let cls, label, action
     if (!pres) { cls='bg-white';
       return (
-        <button key={p.nuMatriculaParlamentar||p.parlamentar} onClick={()=>marcarPresente(p.parlamentar)} className={`w-full text-left border rounded px-2 py-1.5 text-sm font-semibold text-slate-800 ${cls} hover:bg-slate-50`}>{p.parlamentar}</button>
+        <button key={p.nuMatriculaParlamentar||p.parlamentar} onClick={()=>marcarPresente(p.parlamentar)} className={`w-full text-left border rounded px-2 py-1 text-xs font-semibold text-slate-800 ${cls} hover:bg-slate-50`}>{p.parlamentar}</button>
       )
     }
     if (pres.origem==='login' && !pres.confirmed) cls='bg-yellow-100 border-yellow-300'
     else if (pres.origem==='login' && pres.confirmed) cls='bg-green-200 border-green-400'
     else cls='bg-blue-100 border-blue-300' // manual confirmado
     return (
-      <div key={p.nuMatriculaParlamentar||p.parlamentar} className={`flex items-center justify-between border rounded px-2 py-1.5 text-sm ${cls}`}>
+      <div key={p.nuMatriculaParlamentar||p.parlamentar} className={`flex items-center justify-between border rounded px-2 py-1 text-xs ${cls}`}>
         <span>{p.parlamentar} {pres.origem==='login' && pres.confirmed ? '✓' : ''}</span>
         <span className="flex items-center gap-1">
-          {pres.origem==='login' && !pres.confirmed && <button onClick={()=>confirm(pres.id)} className="bg-alesp text-white rounded px-2 py-1 text-xs font-bold">Confirmar</button>}
+          {pres.origem==='login' && !pres.confirmed && <button onClick={()=>confirm(pres.id)} className="bg-alesp text-white rounded px-2 py-0.5 text-xs font-bold">Confirmar</button>}
           <button onClick={()=>setConfirmDelete(pres)} className="bg-red-600 text-white rounded w-5 h-5 text-xs font-bold" title="Excluir">×</button>
         </span>
       </div>
@@ -110,28 +110,28 @@ export default function PresentesTab({ idReuniao }) {
   }
 
   return (
-    <div className="bg-white border rounded-xl p-4">
-      <h2 className="font-extrabold text-alesp mb-2">Presentes</h2>
+    <div className="bg-white border rounded-xl p-3">
+      <h2 className="font-extrabold text-alesp mb-1 text-sm">Presentes</h2>
       {membros.length>0 && (
         <>
-          <div className="text-xs font-bold text-slate-500 uppercase mb-1">Efetivos</div>
-          <div className="grid gap-1">{efetivos.map(row)}</div>
+          <div className="text-[11px] font-bold text-slate-500 uppercase mb-0.5">Efetivos</div>
+          <div className="grid gap-0.5">{efetivos.map(row)}</div>
           {substitutos.length>0 && (<>
-            <div className="text-xs font-bold text-slate-500 uppercase mt-3 mb-1">Substitutos</div>
-            <div className="grid gap-1">{substitutos.map(row)}</div>
+            <div className="text-[11px] font-bold text-slate-500 uppercase mt-2 mb-0.5">Substitutos</div>
+            <div className="grid gap-0.5">{substitutos.map(row)}</div>
           </>)}
         </>
       )}
       {extraNotInMembros.length>0 && (
         <>
-          <div className="text-xs font-bold text-slate-500 uppercase mt-3 mb-1">Outros presentes (não-membros)</div>
-          <div className="grid gap-1">{extraNotInMembros.map(p=>{
+          <div className="text-[11px] font-bold text-slate-500 uppercase mt-2 mb-0.5">Outros presentes (não-membros)</div>
+          <div className="grid gap-0.5">{extraNotInMembros.map(p=>{
             const cls = p.origem==='login' && !p.confirmed ? 'bg-yellow-100 border-yellow-300' : (p.origem==='login' && p.confirmed ? 'bg-green-200 border-green-400' : 'bg-blue-100 border-blue-300')
             return (
-              <div key={p.id} className={`flex items-center justify-between border rounded px-2 py-1.5 text-sm ${cls}`}>
+              <div key={p.id} className={`flex items-center justify-between border rounded px-2 py-1 text-xs ${cls}`}>
                 <span>{p.name}</span>
                 <span className="flex items-center gap-1">
-                  {p.origem==='login' && !p.confirmed && <button onClick={()=>confirm(p.id)} className="bg-alesp text-white rounded px-2 py-1 text-xs font-bold">Confirmar</button>}
+                  {p.origem==='login' && !p.confirmed && <button onClick={()=>confirm(p.id)} className="bg-alesp text-white rounded px-2 py-0.5 text-xs font-bold">Confirmar</button>}
                   <button onClick={()=>setConfirmDelete(p)} className="bg-red-600 text-white rounded w-5 h-5 text-xs font-bold">×</button>
                 </span>
               </div>
@@ -139,12 +139,12 @@ export default function PresentesTab({ idReuniao }) {
           })}</div>
         </>
       )}
-      <div className="mt-3">
-        <div className="text-xs font-bold text-slate-500 uppercase mb-1">Outro deputado (94 ativos)</div>
+      <div className="mt-2">
+        <div className="text-[11px] font-bold text-slate-500 uppercase mb-0.5">Outro deputado (94 ativos)</div>
         {extraInputs.map((val, idx)=>(
-          <div key={idx} className="relative mb-2 flex gap-1">
+          <div key={idx} className="relative mb-1 flex gap-1">
             <div className="relative flex-1">
-              <input value={val} onChange={e=>{ const v=e.target.value; setExtraInputs(s=>s.map((x,i)=>i===idx?v:x)); searchExtra(idx,v) }} placeholder="Buscar parlamentar…" className="w-full border rounded px-2 py-1.5 text-sm" autoComplete="off" />
+              <input value={val} onChange={e=>{ const v=e.target.value; setExtraInputs(s=>s.map((x,i)=>i===idx?v:x)); searchExtra(idx,v) }} placeholder="Buscar parlamentar…" className="w-full border rounded px-2 py-1 text-xs" autoComplete="off" />
               {extraSug[idx]?.length>0 && (
                 <div className="absolute z-10 left-0 right-0 bg-white border rounded mt-1 shadow max-h-40 overflow-auto">
                   {extraSug[idx].map(s=>(
