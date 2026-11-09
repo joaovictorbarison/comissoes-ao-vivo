@@ -111,19 +111,20 @@ export default function PresentesTab({ idReuniao }) {
   const row = (p) => {
     const pres = presByKey.get(normalizeName(p.parlamentar))
     const display = formatName(p.parlamentar)
+    const fCls = nameCls(display)
     let cls, label, action
     if (!pres) { cls='bg-white';
       return (
-        <button key={p.nuMatriculaParlamentar||p.parlamentar} onClick={()=>marcarPresente(p.parlamentar)} className={`w-full text-left border rounded px-2 h-7 ${nameCls(display)} font-normal text-slate-800 ${cls} hover:bg-slate-50`}><span className={nameCls(display)=== 'text-[11px] leading-tight' ? 'text-[11px] leading-tight' : ''}>{display}</span><span className="text-slate-500">{partiLabel(p)}</span></button>
+        <button key={p.nuMatriculaParlamentar||p.parlamentar} onClick={()=>marcarPresente(p.parlamentar)} className={`w-full text-left border rounded px-2 py-1 min-h-7 ${fCls} font-normal text-slate-800 ${cls} hover:bg-slate-50`}><span>{display}</span><span className="text-slate-500">{partiLabel(p)}</span></button>
       )
     }
     if (pres.origem==='login' && !pres.confirmed) cls='bg-yellow-100 border-yellow-300'
     else if (pres.origem==='login' && pres.confirmed) cls='bg-green-200 border-green-400'
     else cls='bg-blue-100 border-blue-300' // manual confirmado
     return (
-      <div key={p.nuMatriculaParlamentar||p.parlamentar} className={`flex items-center justify-between border rounded px-2 h-7 ${nameCls(display)} font-normal ${cls}`}>
-        <span className="truncate"><span className={nameCls(display)}>{display}</span><span className="text-slate-600">{partiLabel(p)}</span> {pres.origem==='login' && pres.confirmed ? '✓' : ''}</span>
-        <span className="flex items-center gap-1">
+      <div key={p.nuMatriculaParlamentar||p.parlamentar} className={`flex items-start justify-between gap-1 border rounded px-2 py-1 ${fCls} font-normal ${cls}`}>
+        <span className="flex-1 min-w-0 break-words"><span>{display}</span><span className="text-slate-600">{partiLabel(p)}</span> {pres.origem==='login' && pres.confirmed ? '✓' : ''}</span>
+        <span className="flex items-center gap-1 shrink-0">
           {pres.origem==='login' && !pres.confirmed && <button onClick={()=>confirm(pres.id)} className="bg-alesp text-white rounded px-2 h-5 text-xs font-normal">Confirmar</button>}
           <button onClick={()=>setConfirmDelete(pres)} className="bg-red-600 text-white rounded w-5 h-5 text-xs font-normal" title="Excluir">×</button>
         </span>
@@ -163,9 +164,9 @@ export default function PresentesTab({ idReuniao }) {
             const disp = formatName(p.name)
             const part = partyPortal[normalizeName(p.name)] || ''
             return (
-              <div key={p.id} className={`flex items-center justify-between border rounded px-2 h-7 text-xs font-normal ${cls}`}>
-                <span className="truncate">{disp}{part?` (${part})`:''}</span>
-                <span className="flex items-center gap-1">
+              <div key={p.id} className={`flex items-start justify-between gap-1 border rounded px-2 py-1 text-xs font-normal ${cls}`}>
+                <span className="flex-1 min-w-0 break-words"><span className={nameCls(disp)}>{disp}</span>{part?` (${part})`:''}</span>
+                <span className="flex items-center gap-1 shrink-0">
                   {p.origem==='login' && !p.confirmed && <button onClick={()=>confirm(p.id)} className="bg-alesp text-white rounded px-2 h-5 text-xs">Confirmar</button>}
                   <button onClick={()=>setConfirmDelete(p)} className="bg-red-600 text-white rounded w-5 h-5 text-xs">×</button>
                 </span>
