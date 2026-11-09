@@ -16,6 +16,7 @@ function createApp() {
   app.use('/api/legis', legisRoutes)
   app.use('/api', meetingRoutes)
   app.use(express.static(path.join(__dirname, '../../client/dist')))
+  app.get('*', (req,res)=>res.sendFile(path.join(__dirname, '../../client/dist/index.html')))
   return app
 }
 
