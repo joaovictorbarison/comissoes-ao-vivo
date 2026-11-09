@@ -19,8 +19,8 @@ const ACTIONS_LABEL = {
   rejeitado_relator:'rejeitado', vista:'vista', retirado:'retirado', pendente:'pendente'
 }
 
-function cardClass(status) {
-  if (status==='aprovado_relator' || status==='aprovado_simbolico') return 'border-green-300 bg-green-100'
+function normalizeName(n=''){ return n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim() }
+function cardClass(status) {  if (status==='aprovado_relator' || status==='aprovado_simbolico') return 'border-green-300 bg-green-100'
   if (status==='aprovado_nominal') return 'border-green-400 bg-green-200'
   if (status==='rejeitado_relator' || status==='rejeitado_nominal') return 'border-red-300 bg-red-100'
   if (status==='vista') return 'border-orange-300 bg-orange-100'
@@ -58,6 +58,8 @@ export default function PautaSecretario() {
   const [outroTxt, setOutroTxt] = useState({})
   const [notas, setNotas] = useState({})
   const [needsManual, setNeedsManual] = useState({})
+  const [membros, setMembros] = useState([])
+  const [elegiveis, setElegiveis] = useState({})
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
 
@@ -81,6 +83,30 @@ export default function PautaSecretario() {
     const r = await fetch(`/api/reuniao/${id}/votos-nominais`).catch(()=>null)
     if (r) setVotosNom(await r.json().catch(()=>({})))
   }
+  const loadMembros = async () => {
+    const r = await fetch(`/api/reuniao/${id}`).catch(()=>null)
+    if (!r) return
+    const j = await r.json().catch(()=>({}))
+    const cols = j.colegiadosRelacionados || []
+    const ids = cols.map(c=>c.id).filter(Boolean)
+    if (!ids.length) return
+    const seen = new Map()
+    for (const cid of ids) {
+      const mr = await fetch(`/api/legis/colegiados/${cid}/membros`).catch(()=>null)
+      if (!mr) continue
+      const arr = await mr.json().catch(()=>[])
+      arr.forEach(p=>{
+        const mat = p.nuMatriculaParlamentar || p.parlamentar
+        if (!seen.has(mat)) seen.set(mat, p)
+        else {
+          const cur = seen.get(mat)
+          const isEfet = (v)=> /efetivo|presidente|vice/i.test(v||'')
+          if (isEfet(p.ocupacao) && !isEfet(cur.ocupacao)) seen.set(mat, p)
+        }
+      })
+    }
+    setMembros([...seen.values()])
+  }
   const loadNotas = async () => {
     const r = await fetch(`/api/reuniao/${id}/anotacoes-secretario`).catch(()=>null)
     if (r) setNotas(await r.json().catch(()=>({})))
@@ -93,10 +119,10 @@ export default function PautaSecretario() {
       setEncerrada(!!j[String(id)]?.encerrada)
     }
   }
-  useEffect(()=>{ if(id){ load(); loadPres(); loadVistas(); loadEstado(); loadNom(); loadNotas() } }, [id])
+  useEffect(()=>{ if(id){ load(); loadPres(); loadVistas(); loadEstado(); loadNom(); loadNotas(); loadMembros() } }, [id])
   useEffect(()=>{
     if(!socket) return
-    const on = () => { load(); loadPres(); loadVistas(); loadEstado(); loadNom(); loadNotas() }
+    const on = () => { load(); loadPres(); loadVistas(); loadEstado(); loadNom(); loadNotas(); loadMembros() }
     socket.on('official_status_changed', on)
     socket.on('active_item_changed', on)
     socket.on('presence_pending', on)
@@ -258,41 +284,65 @@ export default function PautaSecretario() {
                   {ACTIONS_ALL.map(a=>(<button key={a.k} disabled={encerrada} onClick={()=>setStatus(it,a.k)} className={`rounded px-3 py-2 text-sm ${btnClass(a.k,status)} ${encerrada?'opacity-40 cursor-not-allowed':''}`}>{a.label}</button>))}
                 </div>
                 {status==='em_votacao' && !encerrada && (
-                  <div className="mt-3 border border-slate-300 rounded-lg p-3 bg-white">
-                    <div className="flex gap-2 mb-2">
-                      <button onClick={()=>setVotTipo(t=>({...t, [it.id]:'simbolica'}))} className={`rounded px-3 py-1.5 text-sm font-bold ${tipo==='simbolica'?'bg-blue-600 text-white':'bg-slate-100'}`}>Simbólica</button>
-                      <button onClick={()=>setVotTipo(t=>({...t, [it.id]:'nominal'}))} className={`rounded px-3 py-1.5 text-sm font-bold ${tipo==='nominal'?'bg-blue-600 text-white':'bg-slate-100'}`}>Nominal</button>
+                  <div className="mt-3 border border-slate-300 rounded-lg p-2 bg-white">
+                    <div className="flex gap-1 mb-1.5">
+                      <button onClick={()=>setVotTipo(t=>({...t, [it.id]:'simbolica'}))} className={`rounded px-2 py-0.5 text-xs ${tipo==='simbolica'?'bg-blue-600 text-white':'bg-slate-100'}`}>Simbólica</button>
+                      <button onClick={()=>setVotTipo(t=>({...t, [it.id]:'nominal'}))} className={`rounded px-2 py-0.5 text-xs ${tipo==='nominal'?'bg-blue-600 text-white':'bg-slate-100'}`}>Nominal</button>
                     </div>
                     {tipo==='nominal' && (
                       <div>
-                        {deputadosPresentes.length===0 && <div className="text-xs text-slate-500 mb-2">Nenhum parlamentar presente ainda.</div>}
-                        {needManual && <div className="text-xs font-bold text-orange-700 bg-orange-50 border border-orange-200 rounded p-2 mb-2">4 ou mais "Outro" — defina Aprovado ou Rejeitado para finalizar.</div>}
-                        {deputadosPresentes.map(p=>{
-                          const cur = nomVotes.find(v=>v.deputado_name===p.name)
-                          return (
-                            <div key={p.id} className="border rounded p-2 mb-1">
-                              <div className="text-sm font-semibold">{p.name}</div>
-                              <div className="flex gap-1 mt-1 flex-wrap">
-                                <button onClick={()=>registrarVoto(it.id, p.name, 'favoravel')} className={`rounded px-2 py-1 text-xs font-bold ${cur?.voto==='favoravel'?'bg-green-300':'bg-slate-100'}`}>Favorável</button>
-                                <button onClick={()=>registrarVoto(it.id, p.name, 'contrario')} className={`rounded px-2 py-1 text-xs font-bold ${cur?.voto==='contrario'?'bg-red-300':'bg-slate-100'}`}>Contrário</button>
-                                <button onClick={()=>registrarVoto(it.id, p.name, 'outro')} className={`rounded px-2 py-1 text-xs font-bold ${cur?.voto==='outro'?'bg-slate-400':'bg-slate-100'}`}>Outro</button>
-                                {cur?.voto==='outro' && (
-                                  <input value={outroTxt[`${it.id}:${p.name}`]||cur.outro_texto||''} onChange={e=>setOutroTxt(t=>({...t, [`${it.id}:${p.name}`]: e.target.value}))} onBlur={()=>registrarVoto(it.id, p.name, 'outro')} placeholder="Descreva o outro…" className="border rounded px-2 py-1 text-xs flex-1" />
-                                )}
+                        {deputadosPresentes.length===0 && <div className="text-xs text-slate-500 mb-1">Nenhum parlamentar presente ainda.</div>}
+                        {needManual && <div className="text-xs font-bold text-orange-700 bg-orange-50 border border-orange-200 rounded p-1 mb-1">4 ou mais "Outro" — defina Aprovado ou Rejeitado para finalizar.</div>}
+                        {(()=>{
+                          const partyMap = new Map()
+                          membros.forEach(m=>{ if (/substituto/i.test(m.ocupacao||'')) return; const key=(m.federacao||m.partido||'Sem partido'); partyMap.set(key,(partyMap.get(key)||0)+1) })
+                          const grupos = new Map()
+                          deputadosPresentes.forEach(p=>{
+                            const mem = membros.find(m=>normalizeName(m.parlamentar)===normalizeName(p.name))
+                            const party = mem ? (mem.federacao||mem.partido||'Sem partido') : 'Sem partido'
+                            if (!grupos.has(party)) grupos.set(party, [])
+                            grupos.get(party).push(p)
+                          })
+                          return [...grupos.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([party, deps])=>{
+                            const vagas = partyMap.get(party) || deps.length
+                            const voted = deps.filter(d=>nomVotes.find(v=>v.deputado_name===d.name)).length
+                            return (
+                              <div key={party} className="mb-1.5">
+                                <div className="text-[11px] font-bold text-slate-600 uppercase flex justify-between"><span>{party}</span><span>{voted}/{vagas}</span></div>
+                                <div className="grid gap-0.5 mt-0.5">
+                                  {deps.map(p=>{
+                                    const cur = nomVotes.find(v=>v.deputado_name===p.name)
+                                    const eligKey = `${it.id}:${p.name}`
+                                    const elig = elegiveis[eligKey] !== false
+                                    return (
+                                      <div key={p.id} className={`flex items-center gap-1 border rounded px-1.5 h-7 text-xs ${elig?'':'opacity-40'}`}>
+                                        <input type="checkbox" checked={elig} onChange={e=>setElegiveis(s=>({...s, [eligKey]: e.target.checked}))} className="w-3 h-3" title="Pode votar" />
+                                        <span className="flex-1 truncate">{p.name}</span>
+                                        <button disabled={!elig} onClick={()=>registrarVoto(it.id, p.name, 'favoravel')} className={`w-6 h-5 rounded text-xs font-bold ${cur?.voto==='favoravel'?'bg-green-300':'bg-slate-100'}`}>✓</button>
+                                        <button disabled={!elig} onClick={()=>registrarVoto(it.id, p.name, 'contrario')} className={`w-6 h-5 rounded text-xs font-bold ${cur?.voto==='contrario'?'bg-red-300':'bg-slate-100'}`}>✕</button>
+                                        <button disabled={!elig} onClick={()=>registrarVoto(it.id, p.name, 'outro')} className={`h-5 px-1.5 rounded text-xs ${cur?.voto==='outro'?'bg-slate-400':'bg-slate-100'}`}>Outro</button>
+                                        {cur?.voto==='outro' && (
+                                          <input value={outroTxt[eligKey]||cur.outro_texto||''} onChange={e=>setOutroTxt(t=>({...t, [eligKey]: e.target.value}))} onBlur={()=>registrarVoto(it.id, p.name, 'outro')} placeholder="…" className="border rounded px-1 h-5 text-xs w-16" />
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })
+                        })()}
                         <button onClick={async ()=>{
                           const r = await fetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id})})
                           const j = await r.json()
                           if (j.needsManual) setNeedsManual(m=>({...m, [it.id]: true}))
+                          else if (j.ok) { const x = await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, status: j.status==='aprovado_nominal'?'aprovado_relator':'rejeitado_relator'})}).catch(()=>{}) }
                           load()
-                        }} className="bg-alesp text-white rounded px-3 py-1.5 text-xs font-bold mt-2">Finalizar votação nominal</button>
+                        }} className="bg-alesp text-white rounded px-2 py-0.5 text-xs mt-1">Finalizar nominal</button>
                         {needsManual[it.id] && (
-                          <div className="flex gap-1 mt-1 ml-2">
-                            <button onClick={async ()=>{ await fetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, decisaoManual:'aprovado'})}); setNeedsManual(m=>({...m, [it.id]:false})); load() }} className="bg-green-600 text-white rounded px-2 py-1 text-xs font-bold">Aprovado (manual)</button>
-                            <button onClick={async ()=>{ await fetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, decisaoManual:'rejeitado'})}); setNeedsManual(m=>({...m, [it.id]:false})); load() }} className="bg-red-600 text-white rounded px-2 py-1 text-xs font-bold">Rejeitado (manual)</button>
+                          <div className="flex gap-1 mt-1">
+                            <button onClick={async ()=>{ await fetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, decisaoManual:'aprovado'})}); setNeedsManual(m=>({...m, [it.id]:false})); load() }} className="bg-green-600 text-white rounded px-2 py-0.5 text-xs">Aprovado (manual)</button>
+                            <button onClick={async ()=>{ await fetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, decisaoManual:'rejeitado'})}); setNeedsManual(m=>({...m, [it.id]:false})); load() }} className="bg-red-600 text-white rounded px-2 py-0.5 text-xs">Rejeitado (manual)</button>
                           </div>
                         )}
                       </div>
