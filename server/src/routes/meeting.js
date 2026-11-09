@@ -5,13 +5,18 @@ const { generatePdf, generateAssessoriaPdf } = require('../pdf/report.js')
 const router = express.Router()
 
 function normalize(name=''){ return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim() }
+function formatName(name='') {
+  return String(name).toLowerCase().split(' ').map(w => ['de','da','do','das','dos','e'].includes(w) ? w : w.charAt(0).toUpperCase()+w.slice(1)).join(' ').trim()
+}
 function isEncerrada(id) {
   const s = getDb().prepare('SELECT encerrada_em FROM sessions WHERE id_reuniao=?').get(String(id))
   return !!(s && s.encerrada_em)
 }
 
 router.post('/auth/secretario', (req, res) => {
-  const ok = req.body?.password === 'dac2027'
+  const expected = (process.env.SECRETARIO_SENHA || 'dac2027').trim()
+  const sent = typeof req.body?.password === 'string' ? req.body.password.trim() : ''
+  const ok = sent === expected
   res.status(ok ? 200 : 401).json({ ok })
 })
 
@@ -325,46 +330,40 @@ router.delete('/vinculos/:vid', (req, res) => {
 
 router.post('/reuniao/:id/votacao-simbolica', async (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
-  const { itemId } = req.body
+  const { itemId, decision } = req.body
   const id = String(req.params.id)
+  const statusFinal = decision === 'rejeitado' ? 'rejeitado_simbolico' : 'aprovado_simbolico'
   const allPresent = getDb().prepare('SELECT name FROM presencas WHERE id_reuniao=? AND confirmed=1 ORDER BY name').all(id).map(r=>r.name)
-  // filtra partidos sem vaga na comissão (mesma regra da nominal)
-  let present = allPresent
+  let grouped = { efetivos: [], substitutos: [], outros: [] }
   try {
     const sessRow = getDb().prepare('SELECT raw FROM sessions WHERE id_reuniao=?').get(id)
     let raw = {}
     try { raw = JSON.parse(sessRow?.raw||'{}') } catch {}
     const colegiados = raw.colegiadosRelacionados || []
-    if (colegiados.length) {
-      const byKey = new Map()
-      const vagasByParty = new Map()
-      for (const col of colegiados) {
-        const membres = await fetchLegis(`/colegiado/membros/${col.id}`) || []
-        membres.forEach(m => {
-          const k = normalize(m.parlamentar || '')
-          if (!byKey.has(k)) byKey.set(k, m)
-          if (!/substituto/i.test(m.ocupacao||'')) {
-            const pk = (m.federacao||m.partido||'Sem partido')
-            vagasByParty.set(pk, (vagasByParty.get(pk)||0)+1)
-          }
-        })
-      }
-      // portal para nao-membros
-      const det = await fetchLegis(`/parlamentar-portal?filtroLegislatura=20&filtroEmExercicioPesquisa=S`) || {}
-      const list = det.content || []
-      const portalMap = {}
-      list.forEach(p=>{ portalMap[normalize(p.txNomeParlamentar||'')] = p.txPartido||'' })
-      present = allPresent.filter(name=>{
-        const mem = byKey.get(normalize(name))
-        const party = mem ? (mem.federacao||mem.partido||'') : (portalMap[normalize(name)] || '')
-        return party && vagasByParty.has(party)
+    const byKey = new Map()
+    for (const col of colegiados) {
+      const membres = await fetchLegis(`/colegiado/membros/${col.id}`) || []
+      membres.forEach(m => {
+        const k = normalize(m.parlamentar || '')
+        if (!byKey.has(k)) byKey.set(k, m)
       })
     }
-  } catch {}
-  getDb().prepare('INSERT OR REPLACE INTO votacao_simbolica (id_reuniao,item_id,deputados) VALUES (?,?,?)').run(id, String(itemId), JSON.stringify(present))
-  getDb().prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status="aprovado_simbolico"').run(id, String(itemId))
-  req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id, itemId, status:'aprovado_simbolico' })
-  res.json({ ok:true, deputados: present })
+    const det = await fetchLegis(`/parlamentar-portal?filtroLegislatura=20&filtroEmExercicioPesquisa=S`) || {}
+    const portalMap = {}
+    ;(det.content||[]).forEach(p=>{ portalMap[normalize(p.txNomeParlamentar||'')] = p.txPartido||'' })
+    allPresent.forEach(name=>{
+      const mem = byKey.get(normalize(name))
+      const party = mem ? (mem.federacao||mem.partido||'') : (portalMap[normalize(name)] || '')
+      const cat = mem ? (/substituto/i.test(mem.ocupacao||'') ? 'substitutos' : 'efetivos') : 'outros'
+      grouped[cat].push(`${formatName(name)} — ${party || 'Sem partido'}`)
+    })
+  } catch {
+    grouped.outros = allPresent.map(n => `${formatName(n)} — Sem partido`)
+  }
+  getDb().prepare('INSERT OR REPLACE INTO votacao_simbolica (id_reuniao,item_id,deputados) VALUES (?,?,?)').run(id, String(itemId), JSON.stringify(grouped))
+  getDb().prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(id, String(itemId), statusFinal)
+  req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id, itemId, status: statusFinal })
+  res.json({ ok:true, deputados: grouped })
 })
 
 router.get('/reuniao/:id/votacoes-simbolicas', (req, res) => {

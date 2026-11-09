@@ -36,11 +36,18 @@ export default function Identificacao() {
 
   const submit = async (e) => {
     e.preventDefault()
+    setError('')
     if (!name.trim()) { setError('Informe o nome.'); return }
     if (profile === 'assessor' && !deputado.trim()) { setError('Informe o deputado que você assessora.'); return }
     if (profile === 'secretario') {
-      const res = await fetch('/api/auth/secretario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password}) })
-      if (!res.ok) { setError('Senha incorreta para secretário.'); return }
+      let res
+      try {
+        res = await fetch('/api/auth/secretario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: password.trim()}) })
+      } catch {
+        setError('Erro de conexão com o servidor. Verifique sua internet e tente novamente.'); return
+      }
+      if (res.status === 401) { setError('Senha incorreta para secretário.'); return }
+      if (!res.ok) { setError('Erro no servidor. Tente novamente em instantes.'); return }
     }
     setAuth(profile, name.trim(), profile==='assessor' ? deputado.trim() : null)
     navigate('/reunioes')
@@ -78,7 +85,7 @@ export default function Identificacao() {
       </>)}
       {profile==='secretario' && (<>
         <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Senha do secretário</label>
-        <input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full border rounded-lg p-3 mb-4" />
+        <input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full border rounded-lg p-3 mb-4" autoComplete="current-password" spellCheck={false} autoCapitalize="none" autoCorrect="off" />
       </>)}
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
       <button type="submit" className="w-full bg-alesp text-white rounded-lg p-3 font-bold">Continuar</button>

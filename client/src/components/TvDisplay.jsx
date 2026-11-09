@@ -5,9 +5,10 @@ import { useSocket } from '../hooks/useSocket.js'
 function resultLabel(item, vistas) {
   const st = item?.status_oficial
   if (st==='aprovado_relator' || st==='aprovado_simbolico') return 'APROVADO'
-  if (st==='rejeitado_relator' || st==='rejeitado_nominal') return 'REJEITADO'
+  if (st==='rejeitado_relator' || st==='rejeitado_nominal' || st==='rejeitado_simbolico') return 'REJEITADO'
   if (st==='aprovado_nominal') return 'APROVADO'
   if (st==='retirado') return 'RETIRADO'
+  if (st==='nao_deliberado') return 'NÃO DELIBERADO'
   if (st==='vista') {
     const names = vistas[item.id] || []
     return names.length ? `VISTA: ${names.join(', ')}` : 'VISTA'
@@ -15,11 +16,11 @@ function resultLabel(item, vistas) {
   return null
 }
 function isTerminal(item) {
-  return ['aprovado_relator','rejeitado_relator','aprovado_simbolico','aprovado_nominal','rejeitado_nominal','vista','retirado'].includes(item?.status_oficial)
+  return ['aprovado_relator','rejeitado_relator','aprovado_simbolico','rejeitado_simbolico','aprovado_nominal','rejeitado_nominal','vista','retirado'].includes(item?.status_oficial)
 }
 function statusColor(status) {
   if (status==='aprovado_relator' || status==='aprovado_simbolico' || status==='aprovado_nominal') return 'bg-green-300 text-green-900'
-  if (status==='rejeitado_relator') return 'bg-red-300 text-red-900'
+  if (status==='rejeitado_relator' || status==='rejeitado_simbolico' || status==='rejeitado_nominal') return 'bg-red-300 text-red-900'
   if (status==='vista') return 'bg-orange-300 text-orange-900'
   if (status==='retirado') return 'bg-slate-400 text-slate-900'
   if (status==='em_votacao') return 'bg-yellow-400 text-black'
@@ -64,7 +65,7 @@ export default function TvDisplay() {
       const target = items.find(i=>String(i.id)===String(payload.itemId))
       if (!target) return
       const st = payload.status
-      if (isTerminal(target) || ['aprovado_relator','rejeitado_relator','vista','retirado'].includes(st)) {
+      if (isTerminal(target) || ['aprovado_relator','rejeitado_relator','aprovado_simbolico','rejeitado_simbolico','aprovado_nominal','rejeitado_nominal','vista','retirado'].includes(st)) {
         // mostra resultado por 8s
         setCurrentId(target.id)
         setResultItemId(target.id)

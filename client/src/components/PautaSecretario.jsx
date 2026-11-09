@@ -22,7 +22,7 @@ const ACTIONS_LABEL = {
 function normalizeName(n=''){ return n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim() }
 function cardClass(status) {  if (status==='aprovado_relator' || status==='aprovado_simbolico') return 'border-green-300 bg-green-100'
   if (status==='aprovado_nominal') return 'border-green-400 bg-green-200'
-  if (status==='rejeitado_relator' || status==='rejeitado_nominal') return 'border-red-300 bg-red-100'
+  if (status==='rejeitado_relator' || status==='rejeitado_nominal' || status==='rejeitado_simbolico') return 'border-red-300 bg-red-100'
   if (status==='vista') return 'border-orange-300 bg-orange-100'
   if (status==='retirado') return 'border-slate-400 bg-slate-200'
   if (status==='em_discussao') return 'border-yellow-300 bg-yellow-100'
@@ -33,7 +33,7 @@ function cardClass(status) {  if (status==='aprovado_relator' || status==='aprov
 function btnClass(actionKey, currentStatus) {
   if (actionKey!==currentStatus) return 'bg-slate-100 hover:bg-slate-200'
   if (actionKey==='aprovado_relator' || currentStatus==='aprovado_simbolico' || currentStatus==='aprovado_nominal') return 'bg-green-300 text-green-900 font-bold'
-  if (actionKey==='rejeitado_relator' || currentStatus==='rejeitado_nominal') return 'bg-red-300 text-red-900 font-bold'
+  if (actionKey==='rejeitado_relator' || currentStatus==='rejeitado_nominal' || currentStatus==='rejeitado_simbolico') return 'bg-red-300 text-red-900 font-bold'
   if (actionKey==='vista') return 'bg-orange-300 text-orange-900 font-bold'
   if (actionKey==='retirado') return 'bg-slate-400 text-slate-900 font-bold'
   if (actionKey==='em_discussao') return 'bg-yellow-300 text-yellow-900 font-bold'
@@ -57,6 +57,7 @@ export default function PautaSecretario() {
   const [votosNom, setVotosNom] = useState({})
   const [outroTxt, setOutroTxt] = useState({})
   const [notas, setNotas] = useState({})
+  const [savedNotas, setSavedNotas] = useState({})
   const [needsManual, setNeedsManual] = useState({})
   const [membros, setMembros] = useState([])
   const [partyPortal, setPartyPortal] = useState({})
@@ -195,7 +196,13 @@ export default function PautaSecretario() {
     }
     // Aprovado na simbólica → snapshot
     if (status==='aprovado_relator' && (votTipo[itemId]||'simbolica')==='simbolica') {
-      await fetch(`/api/reuniao/${id}/votacao-simbolica`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId})})
+      await fetch(`/api/reuniao/${id}/votacao-simbolica`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, decision: 'aprovado'})})
+      load(); loadNom()
+      return
+    }
+    // Rejeitado na simbólica → snapshot (direto também assume simbólica)
+    if (status==='rejeitado_relator' && (votTipo[itemId]||'simbolica')==='simbolica') {
+      await fetch(`/api/reuniao/${id}/votacao-simbolica`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, decision: 'rejeitado'})})
       load(); loadNom()
       return
     }
@@ -253,6 +260,7 @@ export default function PautaSecretario() {
 
   const saveNota = async (itemId) => {
     await fetch(`/api/reuniao/${id}/item-nota`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, texto: notas[itemId]||''})})
+    setSavedNotas(s=>({...s, [itemId]: true}))
   }
 
   const deputadosPresentes = presencas.filter(p=>p.profile==='deputado')
@@ -371,8 +379,11 @@ export default function PautaSecretario() {
                   <div className="mt-3">
                     <div className="text-xs font-bold text-slate-500 uppercase mb-1">Anotação do secretário</div>
                     <div className="flex gap-1">
-                      <input value={notas[it.id]||''} onChange={e=>setNotas(n=>({...n, [it.id]: e.target.value}))} placeholder="Anotação interna…" className="flex-1 border rounded px-2 py-1.5 text-sm" />
-                      <button onClick={()=>saveNota(it.id)} className="bg-slate-700 text-white rounded px-3 text-xs font-bold">Salvar</button>
+                      <div className="relative flex-1">
+                        <input value={notas[it.id]||''} onChange={e=>{ setNotas(n=>({...n, [it.id]: e.target.value})); setSavedNotas(s=>({...s, [it.id]: false})) }} placeholder="Anotação interna…" className="w-full border rounded px-2 py-1.5 text-sm pr-8" />
+                        {savedNotas[it.id] && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-green-600 text-sm">✔️</span>}
+                      </div>
+                      <button onClick={()=>saveNota(it.id)} className={`${savedNotas[it.id] ? 'bg-blue-600' : 'bg-slate-700'} text-white rounded px-3 text-xs font-bold`}>{savedNotas[it.id] ? 'Editar' : 'Salvar'}</button>
                     </div>
                   </div>
                 )}

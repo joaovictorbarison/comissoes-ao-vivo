@@ -11,25 +11,38 @@ const STATUS_LABEL = {
   em_discussao: 'EM DISCUSSÃO',
   em_votacao: 'EM VOTAÇÃO',
   aprovado_relator: 'APROVADO VOTO DO RELATOR',
+  aprovado_simbolico: 'APROVADO VOTO DO RELATOR',
+  aprovado_nominal: 'APROVADO VOTO DO RELATOR',
   rejeitado_relator: 'REJEITADO VOTO DO RELATOR',
+  rejeitado_simbolico: 'REJEITADO VOTO DO RELATOR',
+  rejeitado_nominal: 'REJEITADO VOTO DO RELATOR',
   aprovado_separado: 'APROVADO VOTO EM SEPARADO',
-  retirado: 'RETIRADO'
+  retirado: 'RETIRADO',
+  vista: 'VISTA',
+  nao_deliberado: 'NÃO DELIBERADO'
 }
 const STATUS_COLOR = {
   pendente: 'bg-slate-200 text-slate-700',
   em_discussao: 'bg-yellow-300 text-yellow-900',
   em_votacao: 'bg-blue-300 text-blue-900',
   aprovado_relator: 'bg-green-300 text-green-900',
+  aprovado_simbolico: 'bg-green-300 text-green-900',
+  aprovado_nominal: 'bg-green-300 text-green-900',
   rejeitado_relator: 'bg-red-300 text-red-900',
+  rejeitado_simbolico: 'bg-red-300 text-red-900',
+  rejeitado_nominal: 'bg-red-300 text-red-900',
   aprovado_separado: 'bg-green-300 text-green-900',
-  retirado: 'bg-slate-400 text-slate-900'
+  retirado: 'bg-slate-400 text-slate-900',
+  vista: 'bg-orange-300 text-orange-900',
+  nao_deliberado: 'bg-slate-300 text-slate-700'
 }
 
 function cardTone(status) {
-  if (status==='aprovado_relator') return 'bg-green-100 border-green-300'
-  if (status==='rejeitado_relator') return 'bg-red-100 border-red-300'
+  if (status==='aprovado_relator' || status==='aprovado_simbolico' || status==='aprovado_nominal') return 'bg-green-100 border-green-300'
+  if (status==='rejeitado_relator' || status==='rejeitado_simbolico' || status==='rejeitado_nominal') return 'bg-red-100 border-red-300'
   if (status==='vista') return 'bg-orange-100 border-orange-300'
   if (status==='retirado') return 'bg-slate-200 border-slate-400'
+  if (status==='nao_deliberado') return 'bg-slate-100 border-slate-300'
   if (status==='em_discussao') return 'bg-yellow-100 border-yellow-300'
   if (status==='em_votacao') return 'bg-blue-100 border-blue-300'
   return 'bg-white border-slate-200'

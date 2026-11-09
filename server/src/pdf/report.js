@@ -1,7 +1,51 @@
 const PDFDocument = require('pdfkit')
 const { getDb } = require('../db.js')
+const { fetchLegis } = require('../legisClient.js')
 
 function normalize(name=''){ return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim() }
+function formatName(name='') {
+  return String(name).toLowerCase().split(' ').map(w => ['de','da','do','das','dos','e'].includes(w) ? w : w.charAt(0).toUpperCase()+w.slice(1)).join(' ').trim()
+}
+async function buildPartyMaps(raw) {
+  const byKey = new Map()
+  try {
+    const colegiados = raw?.colegiadosRelacionados || []
+    for (const col of colegiados) {
+      const membres = await fetchLegis(`/colegiado/membros/${col.id}`) || []
+      membres.forEach(m => {
+        const k = normalize(m.parlamentar || '')
+        if (!byKey.has(k)) byKey.set(k, m)
+      })
+    }
+    const det = await fetchLegis(`/parlamentar-portal?filtroLegislatura=20&filtroEmExercicioPesquisa=S`) || {}
+    const portalMap = {}
+    ;(det.content||[]).forEach(p=>{ portalMap[normalize(p.txNomeParlamentar||'')] = p.txPartido||'' })
+    return { byKey, portalMap }
+  } catch { return { byKey, portalMap: {} } }
+}
+function displayName(name, maps) {
+  const normalized = normalize(name)
+  const mem = maps?.byKey?.get(normalized)
+  const party = mem ? (mem.federacao||mem.partido||'') : (maps?.portalMap?.[normalized] || '')
+  return `${formatName(name)} — ${party || 'Sem partido'}`
+}
+function normalizeSymbolic(data, maps) {
+  if (!data) return { efetivos: [], substitutos: [], outros: [] }
+  if (Array.isArray(data)) {
+    // legado: lista flat de nomes ou strings já com partido
+    if (data.length && data[0] && typeof data[0] === 'object') return { efetivos: [], substitutos: [], outros: data.map(x => x.nome || String(x)) }
+    const enriched = data.map(n => {
+      if (typeof n !== 'string') return String(n)
+      return n.includes('—') ? n : displayName(n, maps)
+    })
+    return { efetivos: [], substitutos: [], outros: enriched }
+  }
+  return {
+    efetivos: data.efetivos || [],
+    substitutos: data.substitutos || [],
+    outros: data.outros || []
+  }
+}
 
 async function renderPdf(build) {
   return new Promise((resolve, reject) => {
@@ -28,6 +72,7 @@ function statusTexto(item, encerrada, vistas) {
   if (st==='aprovado_relator') return 'aprovado o voto do relator'
   if (st==='rejeitado_relator') return 'rejeitado o voto do relator'
   if (st==='aprovado_simbolico') return 'aprovado o voto do relator'
+  if (st==='rejeitado_simbolico') return 'rejeitado o voto do relator'
   if (st==='aprovado_nominal') return 'aprovado o voto do relator - votação nominal'
   if (st==='rejeitado_nominal') return 'rejeitado o voto do relator - votação nominal'
   if (st==='vista') {
@@ -80,12 +125,13 @@ function cabecalho(doc, raw) {
 
 async function generatePdf(idReuniao) {
   const { db, raw, items, pres, vistas, encerrada, simbolicas, nominais, notasSec } = loadMeeting(idReuniao)
+  const partyMaps = await buildPartyMaps(raw)
   const buf = await renderPdf(doc => {
     cabecalho(doc, raw)
     doc.moveDown()
     doc.fontSize(13).text('Presenças confirmadas')
     doc.fontSize(10)
-    pres.forEach(p => doc.text(`• ${p.name}`))
+    pres.forEach(p => doc.text(`• ${displayName(p.name, partyMaps)}`))
     if (!pres.length) doc.text('• Nenhuma presença confirmada.')
     doc.moveDown()
     doc.fontSize(13).text('Itens da pauta — deliberações e vistas')
@@ -97,15 +143,19 @@ async function generatePdf(idReuniao) {
       doc.text(`Autoria: ${proc.txNomeAutores || ''}`, { width: 515 })
       doc.text(`Relatoria: ${vote.autores || ''}`, { width: 515 })
       doc.text(`Voto: ${vote.conclusao || ''}`, { width: 515 })
-      if (i.status_oficial==='aprovado_simbolico') {
-        const deps = simbolicas[i.id] || []
-        doc.text(`Status: Aprovado - votação simbólica: ${deps.join(', ')}`, { width: 515, lineGap: 3 })
+      if (i.status_oficial==='aprovado_simbolico' || i.status_oficial==='rejeitado_simbolico') {
+        const deps = normalizeSymbolic(simbolicas[i.id], partyMaps)
+        const label = i.status_oficial==='aprovado_simbolico' ? 'Aprovado' : 'Rejeitado'
+        doc.text(`Status: ${label} - votação simbólica:`, { width: 515, lineGap: 3 })
+        doc.text(`Efetivos: ${deps.efetivos.join(', ') || '—'}`, { indent: 12, width: 515, lineGap: 3 })
+        doc.text(`Substitutos: ${deps.substitutos.join(', ') || '—'}`, { indent: 12, width: 515, lineGap: 3 })
+        doc.text(`Outros: ${deps.outros.join(', ') || '—'}`, { indent: 12, width: 515, lineGap: 3 })
       } else {
         doc.text(`Status: ${statusTexto(i, encerrada, vistas)}`, { width: 515, lineGap: 3 })
       }
       const nom = nominais[i.id] || []
       if (nom.length) {
-        nom.forEach(v => doc.text(`• ${v.deputado_name}: ${v.voto === 'outro' ? `Outro: ${v.outro_texto||''}` : v.voto}`, { indent: 12, width: 503, lineGap: 3 }))
+        nom.forEach(v => doc.text(`• ${displayName(v.deputado_name, partyMaps)}: ${v.voto === 'outro' ? `Outro: ${v.outro_texto||''}` : v.voto}`, { indent: 12, width: 503, lineGap: 3 }))
       }
       if (notasSec[i.id]) doc.text(`Anotação do secretário: ${notasSec[i.id]}`, { width: 515, lineGap: 3 })
       doc.moveDown(0.5)
@@ -118,6 +168,7 @@ async function generatePdf(idReuniao) {
 async function generateAssessoriaPdf(idReuniao, cabinetKey) {
   const { sess, raw, items, vistas, encerrada, simbolicas, nominais } = loadMeeting(idReuniao)
   const db = getDb()
+  const partyMaps = await buildPartyMaps(raw)
   const titulo = encerrada ? 'Relatório Final da Reunião — Assessoria Parlamentar' : 'Relatório de Orientações da Assessoria para a Reunião'
   const withNotes = items.map(i => {
     const notes = cabinetKey ? db.prepare('SELECT author_name,text FROM anotacoes_privadas WHERE id_reuniao=? AND item_id=? AND cabinet_key=? ORDER BY created_at').all(String(idReuniao), String(i.id), normalize(cabinetKey)) : []
@@ -136,14 +187,18 @@ async function generateAssessoriaPdf(idReuniao, cabinetKey) {
       doc.text(`Autoria: ${proc.txNomeAutores || ''}`, { width: 515 })
       doc.text(`Relatoria: ${vote.autores || ''}`, { width: 515 })
       doc.text(`Voto: ${vote.conclusao || ''}`, { width: 515 })
-      if (i.status_oficial==='aprovado_simbolico') {
-        const deps = simbolicas[i.id] || []
-        doc.text(`Status: Aprovado - votação simbólica: ${deps.join(', ')}`, { width: 515 })
+      if (i.status_oficial==='aprovado_simbolico' || i.status_oficial==='rejeitado_simbolico') {
+        const deps = normalizeSymbolic(simbolicas[i.id], partyMaps)
+        const label = i.status_oficial==='aprovado_simbolico' ? 'Aprovado' : 'Rejeitado'
+        doc.text(`Status: ${label} - votação simbólica:`, { width: 515 })
+        doc.text(`Efetivos: ${deps.efetivos.join(', ') || '—'}`, { indent: 12, width: 515 })
+        doc.text(`Substitutos: ${deps.substitutos.join(', ') || '—'}`, { indent: 12, width: 515 })
+        doc.text(`Outros: ${deps.outros.join(', ') || '—'}`, { indent: 12, width: 515 })
       } else {
         doc.text(`Status: ${statusTexto(i, encerrada, vistas)}`, { width: 515 })
       }
       const nom = nominais[i.id] || []
-      if (nom.length) nom.forEach(v=>doc.text(`• ${v.deputado_name}: ${v.voto}`, { indent: 12, width: 503 }))
+      if (nom.length) nom.forEach(v=>doc.text(`• ${displayName(v.deputado_name, partyMaps)}: ${v.voto}`, { indent: 12, width: 503 }))
       if (i.notes.length) {
         i.notes.forEach(n => doc.text(`Orientação — ${n.author_name}: ${n.text}`, { width: 515, lineGap: 3, indent: 12 }))
       }
