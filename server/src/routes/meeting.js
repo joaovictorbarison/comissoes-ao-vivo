@@ -1,7 +1,7 @@
 const express = require('express')
 const { fetchLegis } = require('../legisClient.js')
 const { getDb } = require('../db.js')
-const { generatePdf } = require('../pdf/report.js')
+const { generatePdf, generateAssessoriaPdf } = require('../pdf/report.js')
 const router = express.Router()
 
 function normalize(name=''){ return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim() }
@@ -41,7 +41,9 @@ router.post('/reuniao/:id/status', (req, res) => {
   const { itemId, status } = req.body
   const allowed = ['pendente','em_discussao','em_votacao','aprovado_relator','rejeitado_relator','aprovado_separado','vista','retirado']
   if (!allowed.includes(status)) return res.status(400).json({ error:'status inválido' })
-  getDb().prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), String(itemId), status)
+  const db = getDb()
+  db.prepare('UPDATE sessions SET iniciada=1 WHERE id_reuniao=?').run(String(req.params.id))
+  db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), String(itemId), status)
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status })
   res.json({ ok:true })
 })
@@ -123,7 +125,7 @@ router.post('/reuniao/:id/anotacao', (req, res) => {
   const { itemId, text, authorName, cabinetKey } = req.body
   if (!text?.trim() || !cabinetKey) return res.status(400).json({ error:'texto e cabinetKey obrigatórios' })
   const depKey = normalize(cabinetKey)
-  const hasVinculo = getDb().prepare('SELECT id FROM vinculos WHERE id_reuniao=? AND deputado_key=? AND status=?').get(String(req.params.id), depKey, 'aceito')
+  const hasVinculo = getDb().prepare('SELECT id FROM vinculos WHERE deputado_key=? AND status=?').get(depKey, 'aceito')
   if (!hasVinculo) return res.status(403).json({ error:'vínculo pendente ou recusado' })
   const info = getDb().prepare('INSERT INTO anotacoes_privadas (id_reuniao,item_id,text,author_name,cabinet_key) VALUES (?,?,?,?,?)').run(String(req.params.id), String(itemId), text.trim(), authorName||'', depKey)
   // emit only to same room, front filters by cabinetKey
@@ -148,10 +150,18 @@ router.get('/reuniao/:id/relatorio.pdf', async (req, res) => {
   res.send(buf)
 })
 
+router.get('/reuniao/:id/relatorio-assessoria.pdf', async (req, res) => {
+  const buf = await generateAssessoriaPdf(String(req.params.id), req.query.cabinetKey || '')
+  res.setHeader('Content-Type','application/pdf')
+  res.setHeader('Content-Disposition', `attachment; filename="relatorio-assessoria-${req.params.id}.pdf"`)
+  res.send(buf)
+})
+
 router.post('/reuniao/:id/vista', (req, res) => {
   const { itemId, names } = req.body
   if (!itemId || !Array.isArray(names)) return res.status(400).json({ error:'itemId e names[] obrigatórios' })
   const db = getDb()
+  db.prepare('UPDATE sessions SET iniciada=1 WHERE id_reuniao=?').run(String(req.params.id))
   db.prepare('DELETE FROM vistas WHERE id_reuniao=? AND item_id=?').run(String(req.params.id), String(itemId))
   if (names.length===0) {
     db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), String(itemId), 'pendente')
@@ -188,8 +198,17 @@ router.post('/reuniao/:id/vinculo', (req, res) => {
   const { assessorName, deputadoName } = req.body
   if (!assessorName?.trim() || !deputadoName?.trim()) return res.status(400).json({ error:'assessorName e deputadoName obrigatórios' })
   const aKey = normalize(assessorName), dKey = normalize(deputadoName)
-  const existing = getDb().prepare('SELECT id FROM vinculos WHERE id_reuniao=? AND assessor_key=? AND deputado_key=?').get(String(req.params.id), aKey, dKey)
-  if (existing) return res.json({ ok:true, id: existing.id, duplicate:true })
+  // global dedupe: um vínculo por par assessor-deputado (ignora reunião) — se já existe em qualquer reunião, reutiliza
+  const existing = getDb().prepare('SELECT id FROM vinculos WHERE assessor_key=? AND deputado_key=?').get(aKey, dKey)
+  if (existing) {
+    // também registra nesta reunião se ainda não registrado (sem criar duplicata conceitual)
+    const hasThis = getDb().prepare('SELECT id FROM vinculos WHERE id_reuniao=? AND assessor_key=? AND deputado_key=?').get(String(req.params.id), aKey, dKey)
+    if (!hasThis) {
+      const row = getDb().prepare('SELECT assessor_name, deputado_name, status FROM vinculos WHERE id=?').get(existing.id)
+      getDb().prepare('INSERT INTO vinculos (id_reuniao, assessor_name, deputado_name, assessor_key, deputado_key, status) VALUES (?,?,?,?,?,?)').run(String(req.params.id), row.assessor_name, row.deputado_name, aKey, dKey, row.status)
+    }
+    return res.json({ ok:true, id: existing.id, duplicate:true })
+  }
   const info = getDb().prepare('INSERT INTO vinculos (id_reuniao, assessor_name, deputado_name, assessor_key, deputado_key) VALUES (?,?,?,?,?)').run(String(req.params.id), assessorName.trim(), deputadoName.trim(), aKey, dKey)
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('vinculo_changed', { idReuniao:req.params.id, id: info.lastInsertRowid })
   res.json({ ok:true, id: info.lastInsertRowid })
@@ -197,10 +216,17 @@ router.post('/reuniao/:id/vinculo', (req, res) => {
 
 router.get('/reuniao/:id/vinculos', (req, res) => {
   const dKey = req.query.deputadoKey ? normalize(req.query.deputadoKey) : null
-  const rows = dKey
-    ? getDb().prepare('SELECT id, assessor_name, deputado_name, status FROM vinculos WHERE id_reuniao=? AND deputado_key=? ORDER BY created_at').all(String(req.params.id), dKey)
-    : getDb().prepare('SELECT id, assessor_name, deputado_name, status FROM vinculos WHERE id_reuniao=? ORDER BY created_at').all(String(req.params.id))
-  res.json(rows)
+  // dedupe global por assessor: um pedido por assessor independente da reunião
+  let rows
+  if (dKey) rows = getDb().prepare('SELECT id, assessor_name, deputado_name, status FROM vinculos WHERE deputado_key=? ORDER BY created_at').all(dKey)
+  else rows = getDb().prepare('SELECT id, assessor_name, deputado_name, status FROM vinculos WHERE id_reuniao=? ORDER BY created_at').all(String(req.params.id))
+  const seen = new Map()
+  rows.forEach(r => {
+    const aKey = normalize(r.assessor_name)
+    if (!seen.has(aKey)) seen.set(aKey, r)
+    else if (seen.get(aKey).status !== 'aceito' && r.status === 'aceito') seen.set(aKey, r)
+  })
+  res.json([...seen.values()])
 })
 
 router.post('/reuniao/:id/vinculo/:vid/aceitar', (req, res) => {

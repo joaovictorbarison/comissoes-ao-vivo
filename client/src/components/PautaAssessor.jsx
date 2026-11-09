@@ -12,27 +12,37 @@ const STATUS_LABEL = {
   aprovado_relator: 'APROVADO VOTO DO RELATOR',
   rejeitado_relator: 'REJEITADO VOTO DO RELATOR',
   aprovado_separado: 'APROVADO VOTO EM SEPARADO',
-  vista: 'VISTA SOLICITADA',
   retirado: 'RETIRADO'
 }
 const STATUS_COLOR = {
   pendente: 'bg-slate-200 text-slate-700',
-  em_discussao: 'bg-yellow-100 text-yellow-800',
-  em_votacao: 'bg-blue-100 text-blue-800',
-  aprovado_relator: 'bg-green-100 text-green-800',
-  rejeitado_relator: 'bg-red-100 text-red-800',
-  aprovado_separado: 'bg-green-200 text-green-900',
-  vista: 'bg-orange-100 text-orange-800',
-  retirado: 'bg-slate-300 text-slate-800'
+  em_discussao: 'bg-yellow-300 text-yellow-900',
+  em_votacao: 'bg-blue-300 text-blue-900',
+  aprovado_relator: 'bg-green-300 text-green-900',
+  rejeitado_relator: 'bg-red-300 text-red-900',
+  aprovado_separado: 'bg-green-300 text-green-900',
+  retirado: 'bg-slate-400 text-slate-900'
+}
+
+function cardTone(status) {
+  if (status==='aprovado_relator') return 'bg-green-100 border-green-300'
+  if (status==='rejeitado_relator') return 'bg-red-100 border-red-300'
+  if (status==='vista') return 'bg-orange-100 border-orange-300'
+  if (status==='retirado') return 'bg-slate-200 border-slate-400'
+  if (status==='em_discussao') return 'bg-yellow-100 border-yellow-300'
+  if (status==='em_votacao') return 'bg-blue-100 border-blue-300'
+  return 'bg-white border-slate-200'
 }
 
 export default function PautaAssessor() {
   const { id } = useParams()
   const { cabinetKey, name, profile, deputadoVinculado } = useAuth()
   const [items, setItems] = useState([])
+  const [meeting, setMeeting] = useState({})
   const [notes, setNotes] = useState([])
   const [drafts, setDrafts] = useState({})
   const [vinculos, setVinculos] = useState([])
+  const [vistas, setVistas] = useState({})
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
 
@@ -40,8 +50,11 @@ export default function PautaAssessor() {
     const res = await fetch(`/api/reuniao/${id}`)
     const j = await res.json()
     setItems(j.items || j || [])
+    setMeeting(j)
     const n = await fetch(`/api/reuniao/${id}/anotacoes?cabinetKey=${encodeURIComponent(cabinetKey||'')}`).then(r=>r.json()).catch(()=>[])
     setNotes(Array.isArray(n) ? n : [])
+    const v = await fetch(`/api/reuniao/${id}/vistas`).then(r=>r.json()).catch(()=>({}))
+    setVistas(v)
   }
   const loadVinculos = async () => {
     if (profile !== 'deputado') return
@@ -80,18 +93,22 @@ export default function PautaAssessor() {
   const saveNote = async (itemId) => {
     const text = drafts[itemId]?.trim()
     if(!text) return
-    await fetch(`/api/reuniao/${id}/anotacao`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, text, authorName:name, cabinetKey})})
+    const r = await fetch(`/api/reuniao/${id}/anotacao`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, text, authorName:name, cabinetKey})})
+    if (!r.ok) { alert('Vínculo pendente ou recusado. Aguarde o aceite do deputado.'); return }
     setDrafts(d=>({...d, [itemId]:''}))
     load()
   }
 
   const notesFor = (itemId) => notes.filter(n => String(n.item_id)===String(itemId))
   const pendentes = vinculos.filter(v=>v.status==='pendente')
+  const comissaoNome = meeting?.solicitante || meeting?.colegiadosRelacionados?.map(c=>`${c.sigla} — ${c.nome}`).join('; ') || ''
 
   return (
     <div>
-      <h1 className="text-lg font-extrabold text-alesp">Pauta completa — Assessor/Deputado</h1>
-      <p className="text-sm text-slate-600 mb-4">Faixa oficial no topo • anotações privadas assessor ↔ deputado</p>
+      <h1 className="text-lg font-extrabold text-alesp">{comissaoNome}</h1>
+      <div className="flex gap-2 my-3">
+        <a href={`/api/reuniao/${id}/relatorio-assessoria.pdf?cabinetKey=${encodeURIComponent(cabinetKey)}`} className="bg-alesp text-white rounded-lg px-4 py-2 text-sm font-bold">Baixar relatório</a>
+      </div>
       {profile==='deputado' && pendentes.length>0 && (
         <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-4">
           <div className="font-bold text-sm mb-2">Pedido(s) de vínculo de assessor:</div>
@@ -110,15 +127,18 @@ export default function PautaAssessor() {
         const vote = (it.documentosVoto||[])[0] || {}
         const pUrl = proposituraUrl(linksMap[proc.idProcesso])
         const vUrl = votoUrl(vote)
+        const vistaNames = vistas[it.id] || []
+        const isVista = status==='vista' || vistaNames.length>0
         return (
-          <article key={it.id} className="bg-white border rounded-xl overflow-hidden mb-3">
-            <div className={`px-4 py-2 text-xs font-extrabold flex justify-between ${STATUS_COLOR[status]||''}`}>
-              <span>● {STATUS_LABEL[status]||status}</span><span>Secretário • ao vivo</span>
+          <article key={it.id} className={`border-2 rounded-xl overflow-hidden mb-3 ${cardTone(status)}`}>
+            <div className={`px-4 py-2 text-xs font-extrabold flex justify-between ${STATUS_COLOR[status]||'bg-slate-200 text-slate-700'}`}>
+              <span>● {isVista && vistaNames.length ? `VISTA SOLICITADA: ${vistaNames.join(', ')}` : STATUS_LABEL[status]||status}</span>
             </div>
             <div className="p-4">
               <span className="bg-alesp text-white text-xs px-2 py-1 rounded-full">ITEM {it.nuOrdem} • {pUrl ? <a href={pUrl} target="_blank" rel="noreferrer" className="underline text-white">{proc.txDescricao}</a> : proc.txDescricao}</span>
               <div className="font-extrabold mt-2">{proc.txEmenta}</div>
-              <div className="text-sm text-slate-600">Autor: {proc.txNomeAutores} {vote.autores && vote.conclusao && <>{vUrl ? <>• <a href={vUrl} target="_blank" rel="noreferrer" className="text-alesp underline">Relator: {vote.autores} — <b>{vote.conclusao}</b></a></> : <>• Relator: {vote.autores} — <b>{vote.conclusao}</b></>}</>}</div>
+              <div className="text-sm text-slate-600">Autor: {proc.txNomeAutores}</div>
+              {vote.autores && vote.conclusao && <div className="text-sm text-slate-600">{vUrl ? <a href={vUrl} target="_blank" rel="noreferrer" className="text-alesp underline">Relator: {vote.autores} — <b>{vote.conclusao}</b></a> : <>Relator: {vote.autores} — <b>{vote.conclusao}</b></>}</div>}
               <div className="bg-amber-50 border border-dashed border-yellow-300 rounded-lg p-2 mt-3">
                 <div className="text-xs font-bold">🔒 Nota do assessor → deputado (privada)</div>
                 {notesFor(it.id).map(n=>(<div key={n.id} className="text-sm mt-1"><b>{n.author_name}:</b> {n.text}</div>))}

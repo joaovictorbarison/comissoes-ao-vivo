@@ -14,19 +14,28 @@ const ACTIONS_ALL = [
   {k:'retirado', label:'Retirado'}
 ]
 
+const ACTIONS_LABEL = {
+  em_discussao:'em discussão', em_votacao:'em votação', aprovado_relator:'aprovado',
+  rejeitado_relator:'rejeitado', vista:'vista', retirado:'retirado', pendente:'pendente'
+}
+
 function cardClass(status) {
-  if (status==='aprovado_relator') return 'border-green-200 bg-green-50'
-  if (status==='rejeitado_relator') return 'border-red-200 bg-red-50'
-  if (status==='vista' || status==='retirado') return 'border-slate-300 bg-slate-50'
+  if (status==='aprovado_relator') return 'border-green-300 bg-green-100'
+  if (status==='rejeitado_relator') return 'border-red-300 bg-red-100'
+  if (status==='vista') return 'border-orange-300 bg-orange-100'
+  if (status==='retirado') return 'border-slate-400 bg-slate-200'
+  if (status==='em_discussao') return 'border-yellow-300 bg-yellow-100'
+  if (status==='em_votacao') return 'border-blue-300 bg-blue-100'
   return 'border-slate-200 bg-white'
 }
 function btnClass(actionKey, currentStatus) {
   if (actionKey!==currentStatus) return 'bg-slate-100 hover:bg-slate-200'
-  if (actionKey==='aprovado_relator') return 'bg-green-200 text-green-900 font-bold'
-  if (actionKey==='rejeitado_relator') return 'bg-red-200 text-red-900 font-bold'
-  if (actionKey==='vista' || actionKey==='retirado') return 'bg-slate-300 text-slate-900 font-bold'
-  if (actionKey==='em_discussao') return 'bg-yellow-200 text-yellow-900 font-bold'
-  if (actionKey==='em_votacao') return 'bg-blue-200 text-blue-900 font-bold'
+  if (actionKey==='aprovado_relator') return 'bg-green-300 text-green-900 font-bold'
+  if (actionKey==='rejeitado_relator') return 'bg-red-300 text-red-900 font-bold'
+  if (actionKey==='vista') return 'bg-orange-300 text-orange-900 font-bold'
+  if (actionKey==='retirado') return 'bg-slate-400 text-slate-900 font-bold'
+  if (actionKey==='em_discussao') return 'bg-yellow-300 text-yellow-900 font-bold'
+  if (actionKey==='em_votacao') return 'bg-blue-300 text-blue-900 font-bold'
   return 'bg-slate-100 font-bold'
 }
 
@@ -39,6 +48,7 @@ export default function PautaSecretario() {
   const [vistaSel, setVistaSel] = useState([])
   const [vistas, setVistas] = useState({})
   const [confirmClear, setConfirmClear] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null)
   const [iniciada, setIniciada] = useState(false)
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
@@ -86,29 +96,47 @@ export default function PautaSecretario() {
     load(); loadVistas(); loadEstado()
   }
 
+  const applyStatus = async (item, status) => {
+    await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: item.id, status})})
+    load()
+  }
+
   const setStatus = async (item, status) => {
     const itemId = item.id
     const current = item.status_oficial || 'pendente'
-    if (status === current) {
-      if (status==='vista') {
-        await fetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, names:[]})})
-        setVistaOpen(null)
-        load(); loadVistas()
-        return
-      }
-      await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status:'pendente'})})
-      load()
-      return
-    }
+    // Vista: sempre abre o painel com checkboxes pré-marcados, nunca apaga direto
     if (status==='vista') {
-      await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status})})
+      if (current !== 'vista') {
+        await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status})})
+      }
       setVistaOpen(itemId)
       setVistaSel(vistas[itemId] || [])
       load(); loadVistas()
       return
     }
-    await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status})})
-    load()
+    // Desfazer: clicar no mesmo botão volta para pendente
+    if (status === current) {
+      await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status:'pendente'})})
+      load()
+      return
+    }
+    // Se item tem vista, pedir confirmação antes de trocar para outra ação final
+    const hasVista = (vistas[itemId]||[]).length>0 || current==='vista'
+    if (hasVista && ['aprovado_relator','rejeitado_relator','retirado'].includes(status)) {
+      setPendingAction({ item, status })
+      return
+    }
+    await applyStatus(item, status)
+  }
+
+  const confirmPending = async () => {
+    if (!pendingAction) return
+    const { item, status } = pendingAction
+    // limpar vista antes de aplicar nova ação
+    await fetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: item.id, names:[]})})
+    await applyStatus(item, status)
+    setPendingAction(null)
+    loadVistas()
   }
 
   const saveVista = async (itemId) => {
@@ -187,6 +215,18 @@ export default function PautaSecretario() {
             <div className="flex gap-2 justify-end">
               <button onClick={()=>setConfirmClear(false)} className="bg-slate-100 rounded px-4 py-2 text-sm">Cancelar</button>
               <button onClick={limpar} className="bg-red-600 text-white rounded px-4 py-2 text-sm font-bold">Limpar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingAction && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-5 max-w-sm w-full mx-4">
+            <div className="font-bold mb-2">Há pedido de vista neste item</div>
+            <div className="text-sm text-slate-600 mb-4">Deseja limpar a vista e registrar {ACTIONS_LABEL[pendingAction.status] || pendingAction.status}?</div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={()=>setPendingAction(null)} className="bg-slate-100 rounded px-4 py-2 text-sm">Cancelar</button>
+              <button onClick={confirmPending} className="bg-alesp text-white rounded px-4 py-2 text-sm font-bold">Limpar e registrar</button>
             </div>
           </div>
         </div>
