@@ -57,8 +57,7 @@ export default function PautaAssessor() {
     setVistas(v)
   }
   const loadVinculos = async () => {
-    if (profile !== 'deputado') return
-    const r = await fetch(`/api/reuniao/${id}/vinculos?deputadoKey=${encodeURIComponent(cabinetKey||'')}`)
+    const r = await fetch(`/api/vinculos?deputadoKey=${encodeURIComponent(cabinetKey||'')}`)
     setVinculos(await r.json().catch(()=>[]))
   }
   useEffect(()=>{ if(id) { load(); loadVinculos() } }, [id, cabinetKey])
@@ -131,7 +130,7 @@ export default function PautaAssessor() {
         const isVista = status==='vista' || vistaNames.length>0
         return (
           <article key={it.id} className={`border-2 rounded-xl overflow-hidden mb-3 ${cardTone(status)}`}>
-            <div className={`px-4 py-2 text-xs font-extrabold flex justify-between ${STATUS_COLOR[status]||'bg-slate-200 text-slate-700'}`}>
+            <div className={`px-4 py-2 text-xs font-extrabold flex justify-between ${isVista && vistaNames.length ? 'bg-orange-300 text-orange-900' : (STATUS_COLOR[status]||'bg-slate-200 text-slate-700')}`}>
               <span>● {isVista && vistaNames.length ? `VISTA SOLICITADA: ${vistaNames.join(', ')}` : STATUS_LABEL[status]||status}</span>
             </div>
             <div className="p-4">

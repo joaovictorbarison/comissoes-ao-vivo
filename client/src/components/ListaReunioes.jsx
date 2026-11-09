@@ -49,40 +49,31 @@ export default function ListaReunioes() {
     fetch('/api/sessoes').then(r=>r.json()).catch(()=>({})).then(setSessoes)
   }, [])
 
-  // Assessor: cria vínculo para todas as reuniões convocadas (assíncrono, independente de ordem)
+  // Assessor: cria vínculo uma única vez (global) na página de reuniões
   useEffect(()=>{
     if (profile !== 'assessor' || !name || !deputadoVinculado || convocadas.length===0) return
-    let alive = true
-    convocadas.forEach(m=>{
-      fetch(`/api/reuniao/${m.idReuniao}/vinculo`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ assessorName: name, deputadoName: deputadoVinculado }) }).catch(()=>{})
-    })
-    return ()=>{ alive=false }
+    // usa primeira convocada como id_reuniao de referência; backend dedupe global garante unicidade
+    fetch(`/api/reuniao/${convocadas[0].idReuniao}/vinculo`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ assessorName: name, deputadoName: deputadoVinculado }) }).catch(()=>{})
   }, [profile, name, deputadoVinculado, convocadas.length])
 
-  // Deputado: busca pendentes de todas as reuniões
+  // Deputado: busca pendentes globais (1 por assessor)
   useEffect(()=>{
-    if (profile !== 'deputado' || convocadas.length===0) return
+    if (profile !== 'deputado') return
     let alive = true
-    const loadAll = async () => {
-      const all = []
-      for (const m of convocadas) {
-        const r = await fetch(`/api/reuniao/${m.idReuniao}/vinculos?deputadoKey=${encodeURIComponent(cabinetKey)}`).catch(()=>null)
-        if (!r) continue
-        const j = await r.json().catch(()=>[])
-        j.filter(v=>v.status==='pendente').forEach(v=>all.push({...v, idReuniao: m.idReuniao}))
-      }
-      if (alive) setPendentes(all)
-    }
-    loadAll()
+    fetch(`/api/vinculos?deputadoKey=${encodeURIComponent(cabinetKey||'')}`).catch(()=>null).then(async r=>{
+      if (!r || !alive) return
+      const j = await r.json().catch(()=>[])
+      if (alive) setPendentes(j.filter(v=>v.status==='pendente'))
+    })
     return ()=>{ alive=false }
-  }, [profile, cabinetKey, convocadas.length])
+  }, [profile, cabinetKey])
 
   const accept = async (v) => {
-    await fetch(`/api/reuniao/${v.idReuniao}/vinculo/${v.id}/aceitar`, { method:'POST' })
+    await fetch(`/api/reuniao/${v.id_reuniao || convocadas[0]?.idReuniao}/vinculo/${v.id}/aceitar`, { method:'POST' })
     setPendentes(p=>p.filter(x=>x.id!==v.id))
   }
   const refuse = async (v) => {
-    await fetch(`/api/reuniao/${v.idReuniao}/vinculo/${v.id}/recusar`, { method:'POST' })
+    await fetch(`/api/reuniao/${v.id_reuniao || convocadas[0]?.idReuniao}/vinculo/${v.id}/recusar`, { method:'POST' })
     setPendentes(p=>p.filter(x=>x.id!==v.id))
   }
 
@@ -95,8 +86,8 @@ export default function ListaReunioes() {
         <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-4">
           <div className="font-bold text-sm mb-2">Pedido(s) de vínculo de assessor:</div>
           {pendentes.map(v=>(
-            <div key={`${v.idReuniao}-${v.id}`} className="flex items-center gap-2 text-sm py-1 flex-wrap">
-              <span>{v.assessor_name} quer te assessorar (reunião {v.idReuniao})</span>
+            <div key={v.id} className="flex items-center gap-2 text-sm py-1 flex-wrap">
+              <span>{v.assessor_name} quer te assessorar</span>
               <button onClick={()=>accept(v)} className="bg-green-600 text-white rounded px-3 py-1 text-xs font-bold">Aceitar</button>
               <button onClick={()=>refuse(v)} className="bg-red-600 text-white rounded px-3 py-1 text-xs font-bold">Recusar</button>
             </div>
@@ -104,7 +95,7 @@ export default function ListaReunioes() {
         </div>
       )}
       {profile==='assessor' && (
-        <div className="text-xs text-slate-600 mb-2">Vínculo com {deputadoVinculado} será solicitado automaticamente para todas as reuniões.</div>
+        <div className="text-xs text-slate-600 mb-2">Vínculo com {deputadoVinculado} será solicitado automaticamente.</div>
       )}
       {convocadas.length===0 && <div className="text-slate-500">Carregando reuniões…</div>}
       <div className="grid md:grid-cols-2 gap-4">

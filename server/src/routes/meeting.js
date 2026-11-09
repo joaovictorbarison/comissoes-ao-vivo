@@ -198,20 +198,25 @@ router.post('/reuniao/:id/vinculo', (req, res) => {
   const { assessorName, deputadoName } = req.body
   if (!assessorName?.trim() || !deputadoName?.trim()) return res.status(400).json({ error:'assessorName e deputadoName obrigatórios' })
   const aKey = normalize(assessorName), dKey = normalize(deputadoName)
-  // global dedupe: um vínculo por par assessor-deputado (ignora reunião) — se já existe em qualquer reunião, reutiliza
   const existing = getDb().prepare('SELECT id FROM vinculos WHERE assessor_key=? AND deputado_key=?').get(aKey, dKey)
-  if (existing) {
-    // também registra nesta reunião se ainda não registrado (sem criar duplicata conceitual)
-    const hasThis = getDb().prepare('SELECT id FROM vinculos WHERE id_reuniao=? AND assessor_key=? AND deputado_key=?').get(String(req.params.id), aKey, dKey)
-    if (!hasThis) {
-      const row = getDb().prepare('SELECT assessor_name, deputado_name, status FROM vinculos WHERE id=?').get(existing.id)
-      getDb().prepare('INSERT INTO vinculos (id_reuniao, assessor_name, deputado_name, assessor_key, deputado_key, status) VALUES (?,?,?,?,?,?)').run(String(req.params.id), row.assessor_name, row.deputado_name, aKey, dKey, row.status)
-    }
-    return res.json({ ok:true, id: existing.id, duplicate:true })
-  }
+  if (existing) return res.json({ ok:true, id: existing.id, duplicate:true })
   const info = getDb().prepare('INSERT INTO vinculos (id_reuniao, assessor_name, deputado_name, assessor_key, deputado_key) VALUES (?,?,?,?,?)').run(String(req.params.id), assessorName.trim(), deputadoName.trim(), aKey, dKey)
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('vinculo_changed', { idReuniao:req.params.id, id: info.lastInsertRowid })
   res.json({ ok:true, id: info.lastInsertRowid })
+})
+
+router.get('/vinculos', (req, res) => {
+  const dKey = req.query.deputadoKey ? normalize(req.query.deputadoKey) : null
+  const rows = dKey
+    ? getDb().prepare('SELECT id, id_reuniao, assessor_name, deputado_name, status FROM vinculos WHERE deputado_key=? ORDER BY created_at').all(dKey)
+    : getDb().prepare('SELECT id, id_reuniao, assessor_name, deputado_name, status FROM vinculos ORDER BY created_at').all()
+  const seen = new Map()
+  rows.forEach(r => {
+    const aKey = normalize(r.assessor_name)
+    if (!seen.has(aKey)) seen.set(aKey, r)
+    else if (seen.get(aKey).status !== 'aceito' && r.status === 'aceito') seen.set(aKey, r)
+  })
+  res.json([...seen.values()])
 })
 
 router.get('/reuniao/:id/vinculos', (req, res) => {
