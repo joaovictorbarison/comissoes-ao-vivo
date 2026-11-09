@@ -34,26 +34,9 @@ let _cacheAt = 0
 router.get('/parlamentares-ativos', async (req, res) => {
   const now = Date.now()
   if (!_cacheParlamentares || now - _cacheAt > 60*60*1000) {
-    const colegiados = await fetchLegis(`/colegiado`) || []
-    const ids = (Array.isArray(colegiados) ? colegiados : []).map(c=>c.id).filter(Boolean)
-    const seen = new Map()
-    // busca em lotes para não sobrecarregar
-    const batch = 20
-    for (let i=0; i<ids.length; i+=batch) {
-      const chunk = ids.slice(i, i+batch)
-      await Promise.all(chunk.map(async (id) => {
-        const data = await fetchLegis(`/colegiado/membros/${id}`)
-        if (Array.isArray(data)) {
-          data.forEach(p=>{
-            if (!p.parlamentar) return
-            if (p.dtFim && new Date(p.dtFim) < new Date()) return
-            const key = p.nuMatriculaParlamentar || p.parlamentar
-            if (!seen.has(key)) seen.set(key, { matricula: p.nuMatriculaParlamentar, nome: p.parlamentar })
-          })
-        }
-      }))
-    }
-    _cacheParlamentares = [...seen.values()].sort((a,b)=>a.nome.localeCompare(b.nome))
+    const data = await fetchLegis(`/parlamentar-portal?filtroLegislatura=20&filtroEmExercicioPesquisa=S`) || { content: [] }
+    const list = data.content || data || []
+    _cacheParlamentares = list.map(p => ({ matricula: p.nuMatricula, nome: p.txNomeParlamentar })).filter(p=>p.nome).sort((a,b)=>a.nome.localeCompare(b.nome))
     _cacheAt = now
   }
   const q = (req.query.q || '').toLowerCase()
