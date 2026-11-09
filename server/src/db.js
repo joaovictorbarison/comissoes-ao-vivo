@@ -14,6 +14,7 @@ function initDb(path) {
       status TEXT,
       active_item_id TEXT,
       encerrada_em TEXT,
+      iniciada INTEGER DEFAULT 0,
       raw TEXT
     );
     CREATE TABLE IF NOT EXISTS agenda_items (
@@ -83,6 +84,7 @@ function initDb(path) {
     CREATE INDEX IF NOT EXISTS idx_vistas_reuniao ON vistas(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_vinculos_reuniao ON vinculos(id_reuniao);
   `)
+  try { db.exec('ALTER TABLE sessions ADD COLUMN iniciada INTEGER DEFAULT 0') } catch {}
   return db
 }
 function getDb() {

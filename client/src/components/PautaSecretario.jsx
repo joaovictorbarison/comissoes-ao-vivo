@@ -37,6 +37,7 @@ export default function PautaSecretario() {
   const [vistaOpen, setVistaOpen] = useState(null)
   const [vistaSel, setVistaSel] = useState([])
   const [vistas, setVistas] = useState({})
+  const [confirmClear, setConfirmClear] = useState(false)
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
 
@@ -64,11 +65,36 @@ export default function PautaSecretario() {
     return ()=>{ socket.off('official_status_changed', on); socket.off('active_item_changed', on); socket.off('presence_pending', on); socket.off('presence_confirmed', on) }
   }, [socket])
 
-  const setStatus = async (itemId, status) => {
+  const iniciar = async () => {
+    await fetch(`/api/reuniao/${id}/iniciar`, {method:'POST'})
+    load(); loadPres(); loadVistas()
+  }
+  const limpar = async () => {
+    await fetch(`/api/reuniao/${id}/limpar`, {method:'POST'})
+    setConfirmClear(false)
+    load(); loadVistas()
+  }
+
+  const setStatus = async (item, status) => {
+    const itemId = item.id
+    const current = item.status_oficial || 'pendente'
+    // desmarcar: clicar no mesmo botão desfaz
+    if (status === current) {
+      if (status==='vista') {
+        // desfaz vista totalmente
+        await fetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, names:[]})})
+        setVistaOpen(null)
+        load(); loadVistas()
+        return
+      }
+      await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status:'pendente'})})
+      load()
+      return
+    }
     if (status==='vista') {
       await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status})})
       setVistaOpen(itemId)
-      setVistaSel([])
+      setVistaSel(vistas[itemId] || [])
       load(); loadVistas()
       return
     }
@@ -77,7 +103,7 @@ export default function PautaSecretario() {
   }
 
   const saveVista = async (itemId) => {
-    if (vistaSel.length===0) { alert('Selecione ao menos um parlamentar.'); return }
+    // se nenhum marcado, desfaz a vista (volta para pendente)
     await fetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, names: vistaSel})})
     setVistaOpen(null)
     load(); loadVistas()
@@ -91,9 +117,14 @@ export default function PautaSecretario() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2 flex-wrap justify-between">
         <h1 className="text-lg font-extrabold text-alesp">Painel do Secretário</h1>
-        <Link to={`/tv/${id}`} target="_blank" className="text-sm bg-black text-white rounded-lg px-3 py-2 font-bold">📺 Ver TV (testar)</Link>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={iniciar} className="text-sm bg-green-600 text-white rounded-lg px-3 py-2 font-bold">Iniciar reunião</button>
+          <a href={`/api/reuniao/${id}/relatorio.pdf`} className="text-sm bg-yellow-400 text-slate-900 rounded-lg px-3 py-2 font-bold">Encerrar e baixar relatório final</a>
+          <button onClick={()=>setConfirmClear(true)} className="text-sm bg-red-600 text-white rounded-lg px-3 py-2 font-bold">Limpar dados</button>
+          <Link to={`/tv/${id}`} target="_blank" className="text-sm bg-black text-white rounded-lg px-3 py-2 font-bold">📺 Ver TV (testar)</Link>
+        </div>
       </div>
       <div className="grid lg:grid-cols-[1fr_300px] gap-4 mt-4">
         <div>
@@ -110,9 +141,10 @@ export default function PautaSecretario() {
                   <span className="text-2xl font-black text-slate-900">Item {it.nuOrdem} - {pUrl ? <a href={pUrl} target="_blank" rel="noreferrer" className="text-alesp underline">{proc.txDescricao}</a> : <>{proc.txDescricao}</>}</span>
                 </div>
                 <div className="font-bold mt-1 text-slate-800">{proc.txEmenta}</div>
-                <div className="text-sm text-slate-600 mt-1">Autor: {proc.txNomeAutores} {vote.autores && vote.conclusao && <>{vUrl ? <>• <a href={vUrl} target="_blank" rel="noreferrer" className="text-alesp underline">Relator: {vote.autores} — <b>{vote.conclusao}</b></a></> : <>• Relator: {vote.autores} — <b>{vote.conclusao}</b></>}</>}</div>
+                <div className="text-sm text-slate-600 mt-1">Autor: {proc.txNomeAutores}</div>
+                {vote.autores && vote.conclusao && <div className="text-sm text-slate-600 mt-1">{vUrl ? <a href={vUrl} target="_blank" rel="noreferrer" className="text-alesp underline">Relator: {vote.autores} — <b>{vote.conclusao}</b></a> : <>Relator: {vote.autores} — <b>{vote.conclusao}</b></>}</div>}
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {ACTIONS_ALL.map(a=>(<button key={a.k} onClick={()=>setStatus(it.id,a.k)} className={`rounded px-3 py-2 text-sm ${btnClass(a.k,status)}`}>{a.label}</button>))}
+                  {ACTIONS_ALL.map(a=>(<button key={a.k} onClick={()=>setStatus(it,a.k)} className={`rounded px-3 py-2 text-sm ${btnClass(a.k,status)}`}>{a.label}</button>))}
                 </div>
                 {vistaList.length>0 && <div className="text-xs mt-2 text-slate-700">Vista solicitada por: {vistaList.join(', ')}</div>}
                 {vistaOpen===it.id && (
@@ -138,6 +170,18 @@ export default function PautaSecretario() {
         </div>
         <PresentesTab idReuniao={id} />
       </div>
+      {confirmClear && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-5 max-w-sm w-full mx-4">
+            <div className="font-bold mb-2">Limpar dados?</div>
+            <div className="text-sm text-slate-600 mb-4">Isso remove todas as deliberações e vistas desta reunião. Presenças serão mantidas.</div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={()=>setConfirmClear(false)} className="bg-slate-100 rounded px-4 py-2 text-sm">Cancelar</button>
+              <button onClick={limpar} className="bg-red-600 text-white rounded px-4 py-2 text-sm font-bold">Limpar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

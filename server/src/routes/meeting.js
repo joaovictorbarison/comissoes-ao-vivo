@@ -77,6 +77,48 @@ router.post('/reuniao/:id/presenca/:pid/confirmar', (req, res) => {
   res.json({ ok:true })
 })
 
+router.delete('/reuniao/:id/presenca/:pid', (req, res) => {
+  getDb().prepare('DELETE FROM presencas WHERE id=? AND id_reuniao=?').run(Number(req.params.pid), String(req.params.id))
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('presence_confirmed', { idReuniao:req.params.id, pid:req.params.pid, deleted:true })
+  res.json({ ok:true })
+})
+
+router.post('/reuniao/:id/iniciar', async (req, res) => {
+  const id = String(req.params.id)
+  const db = getDb()
+  const sess = db.prepare('SELECT * FROM sessions WHERE id_reuniao=?').get(id)
+  if (!sess) {
+    // trigger cache load via GET handler logic (fetch Legis)
+    const detail = await fetchLegis(`/colegiado/reuniao/${id}`) || {}
+    const pauta = await fetchLegis(`/colegiado/reuniao/${id}/pauta?size=500`) || []
+    const items = pauta.content ? pauta.content : (Array.isArray(pauta) ? pauta : [])
+    db.prepare('INSERT OR REPLACE INTO sessions (id_reuniao, titulo, tipo, dt, local, assunto, status, raw) VALUES (?,?,?,?,?,?,?,?)')
+      .run(id, detail.tituloReuniao||'', detail.tipoConvocacao||'', detail.dtReuniao||'', detail.local?.txNome||'', detail.txAssunto||'', detail.status?.txNome||'', JSON.stringify(detail))
+    const ins = db.prepare('INSERT OR REPLACE INTO agenda_items (id, id_reuniao, nu_ordem, raw) VALUES (?,?,?,?)')
+    items.forEach(it => ins.run(String(it.id), id, it.nuOrdem||0, JSON.stringify(it)))
+  }
+  db.prepare('UPDATE sessions SET iniciada=1, encerrada_em=NULL WHERE id_reuniao=?').run(id)
+  req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id })
+  res.json({ ok:true, iniciada:true })
+})
+
+router.post('/reuniao/:id/limpar', (req, res) => {
+  const id = String(req.params.id)
+  const db = getDb()
+  db.prepare('DELETE FROM official_status WHERE id_reuniao=?').run(id)
+  db.prepare('DELETE FROM vistas WHERE id_reuniao=?').run(id)
+  db.prepare('UPDATE sessions SET active_item_id=NULL, encerrada_em=NULL WHERE id_reuniao=?').run(id)
+  req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id })
+  res.json({ ok:true })
+})
+
+router.get('/sessoes', (req, res) => {
+  const rows = getDb().prepare('SELECT id_reuniao, iniciada, encerrada_em FROM sessions').all()
+  const out = {}
+  rows.forEach(r => { out[r.id_reuniao] = { iniciada: !!r.iniciada, encerrada: !!r.encerrada_em } })
+  res.json(out)
+})
+
 router.post('/reuniao/:id/anotacao', (req, res) => {
   const { itemId, text, authorName, cabinetKey } = req.body
   if (!text?.trim() || !cabinetKey) return res.status(400).json({ error:'texto e cabinetKey obrigatórios' })
@@ -108,9 +150,14 @@ router.get('/reuniao/:id/relatorio.pdf', async (req, res) => {
 
 router.post('/reuniao/:id/vista', (req, res) => {
   const { itemId, names } = req.body
-  if (!itemId || !Array.isArray(names) || names.length===0) return res.status(400).json({ error:'itemId e names[] obrigatórios' })
+  if (!itemId || !Array.isArray(names)) return res.status(400).json({ error:'itemId e names[] obrigatórios' })
   const db = getDb()
   db.prepare('DELETE FROM vistas WHERE id_reuniao=? AND item_id=?').run(String(req.params.id), String(itemId))
+  if (names.length===0) {
+    db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), String(itemId), 'pendente')
+    req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status:'pendente' })
+    return res.json({ ok:true, cleared:true })
+  }
   const ins = db.prepare('INSERT INTO vistas (id_reuniao,item_id,name) VALUES (?,?,?)')
   names.forEach(n => ins.run(String(req.params.id), String(itemId), n))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status:'vista' })

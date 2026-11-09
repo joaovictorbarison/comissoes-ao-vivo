@@ -1,10 +1,9 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLegisApi } from '../hooks/useLegisApi.js'
 
 function formatDataBR(dt) {
   if (!dt) return ''
-  // dt esperado "2026-11-10T15:30" ou "2026-11-10 15:30"
   const m = dt.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
   if (m) return `${m[3]}/${m[2]}/${m[1]} às ${m[4]}:${m[5]}`
   const m2 = dt.match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -29,8 +28,19 @@ function sortDocs(docs=[]) {
   return [...docs].sort((a,b)=>score(a)-score(b))
 }
 
+function cardTone(estado) {
+  if (!estado) return 'bg-white border'
+  if (estado.encerrada) return 'bg-green-50 border-green-200'
+  if (estado.iniciada) return 'bg-yellow-50 border-yellow-200'
+  return 'bg-white border'
+}
+
 export default function ListaReunioes() {
   const { data } = useLegisApi('/api/legis/reunioes?size=50')
+  const [sessoes, setSessoes] = useState({})
+  useEffect(()=>{
+    fetch('/api/sessoes').then(r=>r.json()).catch(()=>({})).then(setSessoes)
+  }, [])
   const list = data?.content || []
   const convocadas = list.filter(m => m.status?.txNome === 'Convocada' || !m.status)
   return (
@@ -44,22 +54,27 @@ export default function ListaReunioes() {
           const tipo = m.tipoConvocacao || m.tituloReuniao || ''
           const prefix = m.nuReuniao != null ? `${m.nuReuniao}ª ${tipo}` : tipo
           const docs = sortDocs(m.documentosReuniao || [])
+          const estado = sessoes[String(m.idReuniao)]
+          const tone = cardTone(estado)
+          const comissaoTxt = m.colegiadosRelacionados?.map(c=>`${c.sigla} — ${c.nome}`).join('; ') || m.solicitante || ''
+          const btnLabel = estado?.encerrada
+            ? 'Ir para reunião - reunião encerrada'
+            : estado?.iniciada
+              ? 'Ir para reunião - reunião já iniciada'
+              : 'Ir para reunião'
           return (
-          <article key={m.idReuniao} className="bg-white border rounded-xl overflow-hidden">
-            <div className="bg-blue-50 px-4 py-2 text-xs font-bold">
-              <span>{prefix}</span>
-            </div>
+          <article key={m.idReuniao} className={`border rounded-xl overflow-hidden ${tone}`}>
             <div className="p-4">
-              <div className="font-extrabold">{m.tituloReuniao}</div>
-              <div className="text-sm text-slate-600">{m.txAssunto}</div>
+              <div className="text-lg font-black text-alesp leading-tight">{comissaoTxt}</div>
+              <div className="text-sm font-bold text-slate-700 mt-1">{prefix}</div>
+              <div className="text-sm text-slate-600 mt-1">{m.txAssunto}</div>
               <div className="text-sm mt-2"><b>{formatDataBR(m.dtReuniao)}</b> • {m.local?.txNome}</div>
-              <div className="text-xs bg-slate-50 rounded p-2 mt-2">{m.colegiadosRelacionados?.map(c=>`${c.sigla} — ${c.nome}`).join('; ') || m.solicitante}</div>
               <div className="flex gap-2 mt-3">
                 {docs.map(d=>(
                   <a key={d.idDocumento} href={d.linkArquivoPDF || d.linkArquivo} target="_blank" rel="noreferrer" className="flex-1 text-center text-xs font-bold border border-blue-200 rounded-lg p-2 text-blue-800">{docLabel(d)}</a>
                 ))}
               </div>
-              <Link to={`/reuniao/${m.idReuniao}`} className="block text-center mt-3 bg-alesp text-white rounded-lg p-3 font-bold">Ir para reunião</Link>
+              <Link to={`/reuniao/${m.idReuniao}`} className="block text-center mt-3 bg-alesp text-white rounded-lg p-3 font-bold">{btnLabel}</Link>
             </div>
           </article>
           )
