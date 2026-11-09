@@ -33,11 +33,13 @@ function btnClass(actionKey, currentStatus) {
 export default function PautaSecretario() {
   const { id } = useParams()
   const [items, setItems] = useState([])
+  const [meeting, setMeeting] = useState({})
   const [presencas, setPresencas] = useState([])
   const [vistaOpen, setVistaOpen] = useState(null)
   const [vistaSel, setVistaSel] = useState([])
   const [vistas, setVistas] = useState({})
   const [confirmClear, setConfirmClear] = useState(false)
+  const [iniciada, setIniciada] = useState(false)
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
 
@@ -45,6 +47,14 @@ export default function PautaSecretario() {
     const r = await fetch(`/api/reuniao/${id}`)
     const j = await r.json()
     setItems(j.items || j || [])
+    setMeeting(j)
+  }
+  const loadEstado = async () => {
+    const r = await fetch(`/api/sessoes`).catch(()=>null)
+    if (r) {
+      const j = await r.json().catch(()=>({}))
+      setIniciada(!!j[String(id)]?.iniciada)
+    }
   }
   const loadPres = async () => {
     const r = await fetch(`/api/reuniao/${id}/presencas`)
@@ -54,10 +64,10 @@ export default function PautaSecretario() {
     const r = await fetch(`/api/reuniao/${id}/vistas`)
     setVistas(await r.json().catch(()=>({})))
   }
-  useEffect(()=>{ if(id){ load(); loadPres(); loadVistas() } }, [id])
+  useEffect(()=>{ if(id){ load(); loadPres(); loadVistas(); loadEstado() } }, [id])
   useEffect(()=>{
     if(!socket) return
-    const on = () => { load(); loadPres(); loadVistas() }
+    const on = () => { load(); loadPres(); loadVistas(); loadEstado() }
     socket.on('official_status_changed', on)
     socket.on('active_item_changed', on)
     socket.on('presence_pending', on)
@@ -67,21 +77,20 @@ export default function PautaSecretario() {
 
   const iniciar = async () => {
     await fetch(`/api/reuniao/${id}/iniciar`, {method:'POST'})
-    load(); loadPres(); loadVistas()
+    setIniciada(true)
+    load(); loadPres(); loadVistas(); loadEstado()
   }
   const limpar = async () => {
     await fetch(`/api/reuniao/${id}/limpar`, {method:'POST'})
     setConfirmClear(false)
-    load(); loadVistas()
+    load(); loadVistas(); loadEstado()
   }
 
   const setStatus = async (item, status) => {
     const itemId = item.id
     const current = item.status_oficial || 'pendente'
-    // desmarcar: clicar no mesmo botão desfaz
     if (status === current) {
       if (status==='vista') {
-        // desfaz vista totalmente
         await fetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, names:[]})})
         setVistaOpen(null)
         load(); loadVistas()
@@ -103,7 +112,6 @@ export default function PautaSecretario() {
   }
 
   const saveVista = async (itemId) => {
-    // se nenhum marcado, desfaz a vista (volta para pendente)
     await fetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, names: vistaSel})})
     setVistaOpen(null)
     load(); loadVistas()
@@ -114,13 +122,14 @@ export default function PautaSecretario() {
   }
 
   const deputadosPresentes = presencas.filter(p=>p.profile==='deputado')
+  const comissaoNome = meeting?.solicitante || meeting?.colegiadosRelacionados?.map(c=>`${c.sigla} — ${c.nome}`).join('; ') || 'Painel do Secretário'
 
   return (
     <div>
       <div className="flex items-center gap-2 flex-wrap justify-between">
-        <h1 className="text-lg font-extrabold text-alesp">Painel do Secretário</h1>
+        <h1 className="text-lg font-extrabold text-alesp">{comissaoNome}</h1>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={iniciar} className="text-sm bg-green-600 text-white rounded-lg px-3 py-2 font-bold">Iniciar reunião</button>
+          <button onClick={iniciar} disabled={iniciada} className={`text-sm w-36 rounded-lg px-3 py-2 font-bold ${iniciada ? 'bg-green-600 text-white opacity-50 cursor-not-allowed' : 'bg-green-600 text-white'}`}>{iniciada ? 'Reunião iniciada' : 'Iniciar reunião'}</button>
           <a href={`/api/reuniao/${id}/relatorio.pdf`} className="text-sm bg-yellow-400 text-slate-900 rounded-lg px-3 py-2 font-bold">Encerrar e baixar relatório final</a>
           <button onClick={()=>setConfirmClear(true)} className="text-sm bg-red-600 text-white rounded-lg px-3 py-2 font-bold">Limpar dados</button>
           <Link to={`/tv/${id}`} target="_blank" className="text-sm bg-black text-white rounded-lg px-3 py-2 font-bold">📺 Ver TV (testar)</Link>

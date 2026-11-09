@@ -29,4 +29,24 @@ router.get('/colegiados/:id/membros', async (req, res) => {
   res.json(data || [])
 })
 
+router.get('/parlamentares-ativos', async (req, res) => {
+  const ids = [12444,12445,12447,12455,1000000128]
+  const seen = new Map()
+  for (const id of ids) {
+    const data = await fetchLegis(`/colegiado/membros/${id}`)
+    if (Array.isArray(data)) {
+      data.forEach(p => {
+        if (!p.parlamentar) return
+        if (p.dtFim && new Date(p.dtFim) < new Date()) return
+        const key = p.nuMatriculaParlamentar || p.parlamentar
+        if (!seen.has(key)) seen.set(key, { matricula: p.nuMatriculaParlamentar, nome: p.parlamentar })
+      })
+    }
+  }
+  const q = (req.query.q || '').toLowerCase()
+  const all = [...seen.values()]
+  const filtered = q ? all.filter(p => p.nome.toLowerCase().includes(q)) : all
+  res.json(filtered)
+})
+
 module.exports = router

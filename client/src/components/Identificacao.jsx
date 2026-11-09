@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -10,6 +10,23 @@ export default function Identificacao() {
   const [deputado, setDeputado] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [sugestoes, setSugestoes] = useState([])
+  const [showSug, setShowSug] = useState(false)
+
+  // type-ahead de parlamentares ativos (API Legis)
+  useEffect(()=>{
+    if (profile !== 'assessor') return
+    const q = deputado.trim()
+    if (q.length < 2) { setSugestoes([]); return }
+    let alive = true
+    const t = setTimeout(async ()=>{
+      const r = await fetch(`/api/legis/parlamentares-ativos?q=${encodeURIComponent(q)}`).catch(()=>null)
+      if (!r || !alive) return
+      const j = await r.json().catch(()=>[])
+      if (alive) setSugestoes(Array.isArray(j) ? j.slice(0,8) : [])
+    }, 300)
+    return ()=>{ alive=false; clearTimeout(t) }
+  }, [deputado, profile])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -37,7 +54,17 @@ export default function Identificacao() {
       <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ex.: Maria Silva" className="w-full border rounded-lg p-3 mb-4" />
       {profile==='assessor' && (<>
         <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Deputado(a) que você assessora</label>
-        <input value={deputado} onChange={e=>setDeputado(e.target.value)} placeholder="Ex.: Gil Diniz Bolsonaro" className="w-full border rounded-lg p-3 mb-4" />
+        <div className="relative">
+          <input value={deputado} onChange={e=>{ setDeputado(e.target.value); setShowSug(true) }} onFocus={()=>setShowSug(true)} placeholder="Digite para buscar parlamentares ativos…" className="w-full border rounded-lg p-3" autoComplete="off" />
+          {showSug && sugestoes.length>0 && (
+            <div className="absolute z-10 left-0 right-0 bg-white border rounded-lg mt-1 shadow max-h-52 overflow-auto">
+              {sugestoes.map(s=>(
+                <button type="button" key={s.matricula||s.nome} onClick={()=>{ setDeputado(s.nome); setShowSug(false) }} className="w-full text-left px-3 py-2 hover:bg-slate-100 text-sm">{s.nome}</button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="mb-4" />
       </>)}
       {profile==='secretario' && (<>
         <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Senha do secretário</label>

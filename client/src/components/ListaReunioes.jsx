@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLegisApi } from '../hooks/useLegisApi.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 function formatDataBR(dt) {
   if (!dt) return ''
@@ -37,17 +38,74 @@ function cardTone(estado) {
 
 export default function ListaReunioes() {
   const { data } = useLegisApi('/api/legis/reunioes?size=50')
+  const { profile, name, deputadoVinculado, cabinetKey } = useAuth()
   const [sessoes, setSessoes] = useState({})
+  const [pendentes, setPendentes] = useState([])
+
+  const list = data?.content || []
+  const convocadas = list.filter(m => m.status?.txNome === 'Convocada' || !m.status)
+
   useEffect(()=>{
     fetch('/api/sessoes').then(r=>r.json()).catch(()=>({})).then(setSessoes)
   }, [])
-  const list = data?.content || []
-  const convocadas = list.filter(m => m.status?.txNome === 'Convocada' || !m.status)
+
+  // Assessor: cria vínculo para todas as reuniões convocadas (assíncrono, independente de ordem)
+  useEffect(()=>{
+    if (profile !== 'assessor' || !name || !deputadoVinculado || convocadas.length===0) return
+    let alive = true
+    convocadas.forEach(m=>{
+      fetch(`/api/reuniao/${m.idReuniao}/vinculo`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ assessorName: name, deputadoName: deputadoVinculado }) }).catch(()=>{})
+    })
+    return ()=>{ alive=false }
+  }, [profile, name, deputadoVinculado, convocadas.length])
+
+  // Deputado: busca pendentes de todas as reuniões
+  useEffect(()=>{
+    if (profile !== 'deputado' || convocadas.length===0) return
+    let alive = true
+    const loadAll = async () => {
+      const all = []
+      for (const m of convocadas) {
+        const r = await fetch(`/api/reuniao/${m.idReuniao}/vinculos?deputadoKey=${encodeURIComponent(cabinetKey)}`).catch(()=>null)
+        if (!r) continue
+        const j = await r.json().catch(()=>[])
+        j.filter(v=>v.status==='pendente').forEach(v=>all.push({...v, idReuniao: m.idReuniao}))
+      }
+      if (alive) setPendentes(all)
+    }
+    loadAll()
+    return ()=>{ alive=false }
+  }, [profile, cabinetKey, convocadas.length])
+
+  const accept = async (v) => {
+    await fetch(`/api/reuniao/${v.idReuniao}/vinculo/${v.id}/aceitar`, { method:'POST' })
+    setPendentes(p=>p.filter(x=>x.id!==v.id))
+  }
+  const refuse = async (v) => {
+    await fetch(`/api/reuniao/${v.idReuniao}/vinculo/${v.id}/recusar`, { method:'POST' })
+    setPendentes(p=>p.filter(x=>x.id!==v.id))
+  }
+
   return (
     <div>
       <div className="bg-gradient-to-r from-alesp to-alesp-light text-white rounded-xl p-5 mb-4">
         <div className="text-2xl font-extrabold">Reuniões de Comissão</div>
       </div>
+      {profile==='deputado' && pendentes.length>0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-4">
+          <div className="font-bold text-sm mb-2">Pedido(s) de vínculo de assessor:</div>
+          {pendentes.map(v=>(
+            <div key={`${v.idReuniao}-${v.id}`} className="flex items-center gap-2 text-sm py-1 flex-wrap">
+              <span>{v.assessor_name} quer te assessorar (reunião {v.idReuniao})</span>
+              <button onClick={()=>accept(v)} className="bg-green-600 text-white rounded px-3 py-1 text-xs font-bold">Aceitar</button>
+              <button onClick={()=>refuse(v)} className="bg-red-600 text-white rounded px-3 py-1 text-xs font-bold">Recusar</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {profile==='assessor' && (
+        <div className="text-xs text-slate-600 mb-2">Vínculo com {deputadoVinculado} será solicitado automaticamente para todas as reuniões.</div>
+      )}
       {convocadas.length===0 && <div className="text-slate-500">Carregando reuniões…</div>}
       <div className="grid md:grid-cols-2 gap-4">
         {convocadas.map(m => {

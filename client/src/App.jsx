@@ -14,22 +14,34 @@ function PautaRouter() {
   return <PautaAssessor />
 }
 
+function Header() {
+  const { profile } = useAuth()
+  const subtitle = {
+    secretario: 'Comissões Ao Vivo - Painel do Secretário',
+    deputado: 'Comissões Ao Vivo - Painel do Parlamentar',
+    assessor: 'Comissões Ao Vivo - Painel de Assessoria'
+  }[profile] || 'Comissões Ao Vivo'
+  return (
+    <header className="bg-alesp text-white px-4 py-3 flex items-center gap-3">
+      <div className="bg-white text-alesp w-9 h-9 rounded flex items-center justify-center font-extrabold">AL</div>
+      <div>
+        <div className="text-xs opacity-80">{subtitle}</div>
+        <div className="text-xs opacity-70">Assembleia Legislativa do Estado de São Paulo</div>
+      </div>
+      <nav className="ml-auto flex gap-4 text-sm">
+        <Link to="/reunioes" className="underline">Reuniões</Link>
+        <Link to="/identificacao" className="underline">Identificação</Link>
+      </nav>
+    </header>
+  )
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <div className="min-h-screen bg-slate-50">
-          <header className="bg-alesp text-white px-4 py-3 flex items-center gap-3">
-            <div className="bg-white text-alesp w-9 h-9 rounded flex items-center justify-center font-extrabold">AL</div>
-            <div>
-              <div className="font-extrabold leading-none">Comissões Ao Vivo 2</div>
-              <div className="text-xs opacity-80">Assembleia Legislativa do Estado de São Paulo</div>
-            </div>
-            <nav className="ml-auto flex gap-4 text-sm">
-              <Link to="/reunioes" className="underline">Reuniões</Link>
-              <Link to="/identificacao" className="underline">Identificação</Link>
-            </nav>
-          </header>
+          <Header />
           <main className="max-w-5xl mx-auto p-4">
             <Routes>
               <Route path="/" element={<Identificacao />} />

@@ -107,7 +107,7 @@ router.post('/reuniao/:id/limpar', (req, res) => {
   const db = getDb()
   db.prepare('DELETE FROM official_status WHERE id_reuniao=?').run(id)
   db.prepare('DELETE FROM vistas WHERE id_reuniao=?').run(id)
-  db.prepare('UPDATE sessions SET active_item_id=NULL, encerrada_em=NULL WHERE id_reuniao=?').run(id)
+  db.prepare('UPDATE sessions SET active_item_id=NULL, encerrada_em=NULL, iniciada=0 WHERE id_reuniao=?').run(id)
   req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id })
   res.json({ ok:true })
 })
