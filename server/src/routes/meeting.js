@@ -67,20 +67,29 @@ router.post('/reuniao/:id/item-ativo', (req, res) => {
 })
 
 router.post('/reuniao/:id/presenca', (req, res) => {
-  const { name, profile } = req.body
+  const { name, profile, manual } = req.body
   if (!name?.trim()) return res.status(400).json({ error:'nome obrigatório' })
   if (profile === 'assessor' || profile === 'secretario') return res.status(400).json({ error:'apenas deputados em presencas' })
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   const key = normalize(name)
-  const exists = getDb().prepare('SELECT id FROM presencas WHERE id_reuniao=? AND cabinet_key=?').get(String(req.params.id), key)
-  if (exists) return res.json({ ok:true, id: exists.id, duplicate:true })
-  const info = getDb().prepare('INSERT INTO presencas (id_reuniao,name,profile,cabinet_key) VALUES (?,?,?,?)').run(String(req.params.id), name.trim(), profile||'', key)
-  req.app.get('io')?.to('reuniao:'+req.params.id).emit('presence_pending', { idReuniao:req.params.id, name, profile })
+  const exists = getDb().prepare('SELECT id, origem, confirmed FROM presencas WHERE id_reuniao=? AND cabinet_key=?').get(String(req.params.id), key)
+  if (exists) {
+    // login após marcação manual: vira pendente novamente para nova confirmação
+    if (!manual && exists.origem === 'manual') {
+      getDb().prepare("UPDATE presencas SET origem='login', confirmed=0 WHERE id=?").run(exists.id)
+      req.app.get('io')?.to('reuniao:'+req.params.id).emit('presence_pending', { idReuniao:req.params.id, name, profile })
+    }
+    return res.json({ ok:true, id: exists.id, duplicate:true })
+  }
+  const origem = manual ? 'manual' : 'login'
+  const confirmed = manual ? 1 : 0
+  const info = getDb().prepare('INSERT INTO presencas (id_reuniao,name,profile,cabinet_key,origem,confirmed) VALUES (?,?,?,?,?,?)').run(String(req.params.id), name.trim(), profile||'', key, origem, confirmed)
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit(manual ? 'presence_confirmed' : 'presence_pending', { idReuniao:req.params.id, name, profile })
   res.json({ ok:true, id: info.lastInsertRowid })
 })
 
-router.get('/reuniao/:id/presencas', (req, res) => {  const rows = getDb().prepare('SELECT id,name,profile,confirmed FROM presencas WHERE id_reuniao=? ORDER BY created_at').all(String(req.params.id))
-  res.json(rows.map(r=>({ id:r.id, name:r.name, profile:r.profile, confirmed: !!r.confirmed })))
+router.get('/reuniao/:id/presencas', (req, res) => {  const rows = getDb().prepare('SELECT id,name,profile,confirmed,origem FROM presencas WHERE id_reuniao=? ORDER BY created_at').all(String(req.params.id))
+  res.json(rows.map(r=>({ id:r.id, name:r.name, profile:r.profile, confirmed: !!r.confirmed, origem: r.origem || 'login' })))
 })
 
 router.post('/reuniao/:id/presenca/:pid/confirmar', (req, res) => {

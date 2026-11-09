@@ -85,6 +85,7 @@ function initDb(path) {
     CREATE INDEX IF NOT EXISTS idx_vinculos_reuniao ON vinculos(id_reuniao);
   `)
   try { db.exec('ALTER TABLE sessions ADD COLUMN iniciada INTEGER DEFAULT 0') } catch {}
+  try { db.exec("ALTER TABLE presencas ADD COLUMN origem TEXT DEFAULT 'login'") } catch {}
   return db
 }
 function getDb() {
