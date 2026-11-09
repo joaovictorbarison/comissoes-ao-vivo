@@ -163,8 +163,8 @@ export default function PautaSecretario() {
           <Link to={`/tv/${id}`} target="_blank" className="text-sm bg-black text-white rounded-lg px-3 py-2 font-bold">📺 Ver TV (testar)</Link>
         </div>
       </div>
-      <div className="grid lg:grid-cols-[1fr_300px] gap-4 mt-4">
-        <div>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 mt-4">
+        <div className="order-2 lg:order-1">
           {items.map(it=>{
             const proc = it.processoDadosView||{}
             const vote = (it.documentosVoto||[])[0] || {}
@@ -205,7 +205,9 @@ export default function PautaSecretario() {
           })}
           <a href={`/api/reuniao/${id}/relatorio.pdf`} className="block text-center bg-yellow-400 text-slate-900 font-bold rounded-xl p-3">Encerrar e baixar PDF final</a>
         </div>
-        <PresentesTab idReuniao={id} />
+        <div className="order-1 lg:order-2">
+          <PresentesTab idReuniao={id} />
+        </div>
       </div>
       {confirmClear && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

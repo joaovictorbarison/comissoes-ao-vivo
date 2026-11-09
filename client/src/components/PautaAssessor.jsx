@@ -121,8 +121,8 @@ export default function PautaAssessor() {
           ))}
         </div>
       )}
-      <div className="grid lg:grid-cols-[1fr_300px] gap-4">
-        <div>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
+        <div className="order-2 lg:order-1">
       {items.map(it => {
         const status = it.status_oficial || 'pendente'
         const proc = it.processoDadosView || it.processo || {}
@@ -154,7 +154,7 @@ export default function PautaAssessor() {
         )
       })}
         </div>
-        {profile==='deputado' && <AssessoresTab idReuniao={id} />}
+        {profile==='deputado' && <div className="order-1 lg:order-2"><AssessoresTab idReuniao={id} /></div>}
       </div>
     </div>
   )
