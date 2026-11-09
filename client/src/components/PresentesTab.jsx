@@ -82,10 +82,10 @@ export default function PresentesTab({ idReuniao }) {
   const row = (p) => {
     const pres = presByKey.get(normalizeName(p.parlamentar))
     let cls, label, action
-    if (!pres) { cls='bg-white'; label='Marcar presente'; action=<button onClick={()=>marcarPresente(p.parlamentar)} className="bg-slate-200 rounded px-2 py-1 text-xs font-bold">Marcar presente</button> ; 
+    if (!pres) { cls='bg-white'; 
       return (
         <div key={p.nuMatriculaParlamentar||p.parlamentar} className={`flex items-center justify-between border rounded px-2 py-1.5 text-sm ${cls}`}>
-          <span>{p.parlamentar}</span><span>{action}</span>
+          <button onClick={()=>marcarPresente(p.parlamentar)} className="text-alesp underline font-semibold text-left">{p.parlamentar}</button><span className="text-xs text-slate-500">clique para marcar</span>
         </div>
       )
     }
