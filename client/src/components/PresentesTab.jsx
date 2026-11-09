@@ -16,6 +16,7 @@ function nameCls(n='') {
 export default function PresentesTab({ idReuniao }) {
   const [presencas, setPresencas] = useState([])
   const [membros, setMembros] = useState([])
+  const [partyPortal, setPartyPortal] = useState({})
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [confirmClearAll, setConfirmClearAll] = useState(false)
   const [extraInputs, setExtraInputs] = useState([''])
@@ -49,6 +50,13 @@ export default function PresentesTab({ idReuniao }) {
       })
     }
     setMembros([...seen.values()])
+    const pr = await fetch(`/api/legis/parlamentares-ativos`).catch(()=>null)
+    if (pr) {
+      const arr = await pr.json().catch(()=>[])
+      const map = {}
+      arr.forEach(p=>{ map[normalizeName(p.nome)] = p.partido || '' })
+      setPartyPortal(map)
+    }
   }
   useEffect(()=>{ load(); loadMembros() }, [idReuniao])
   useEffect(()=>{
@@ -153,9 +161,10 @@ export default function PresentesTab({ idReuniao }) {
           <div className="grid gap-0.5">{extraNotInMembros.map(p=>{
             const cls = p.origem==='login' && !p.confirmed ? 'bg-yellow-100 border-yellow-300' : (p.origem==='login' && p.confirmed ? 'bg-green-200 border-green-400' : 'bg-blue-100 border-blue-300')
             const disp = formatName(p.name)
+            const part = partyPortal[normalizeName(p.name)] || ''
             return (
               <div key={p.id} className={`flex items-center justify-between border rounded px-2 h-7 text-xs font-normal ${cls}`}>
-                <span className="truncate">{disp}</span>
+                <span className="truncate">{disp}{part?` (${part})`:''}</span>
                 <span className="flex items-center gap-1">
                   {p.origem==='login' && !p.confirmed && <button onClick={()=>confirm(p.id)} className="bg-alesp text-white rounded px-2 h-5 text-xs">Confirmar</button>}
                   <button onClick={()=>setConfirmDelete(p)} className="bg-red-600 text-white rounded w-5 h-5 text-xs">×</button>

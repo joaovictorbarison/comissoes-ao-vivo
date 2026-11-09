@@ -36,7 +36,7 @@ router.get('/parlamentares-ativos', async (req, res) => {
   if (!_cacheParlamentares || now - _cacheAt > 60*60*1000) {
     const data = await fetchLegis(`/parlamentar-portal?filtroLegislatura=20&filtroEmExercicioPesquisa=S`) || { content: [] }
     const list = data.content || data || []
-    _cacheParlamentares = list.map(p => ({ matricula: p.nuMatricula, nome: p.txNomeParlamentar })).filter(p=>p.nome).sort((a,b)=>a.nome.localeCompare(b.nome))
+    _cacheParlamentares = list.map(p => ({ matricula: p.nuMatricula, nome: p.txNomeParlamentar, partido: p.txPartido || '' })).filter(p=>p.nome).sort((a,b)=>a.nome.localeCompare(b.nome))
     _cacheAt = now
   }
   const q = (req.query.q || '').toLowerCase()

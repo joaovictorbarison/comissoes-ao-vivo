@@ -323,13 +323,47 @@ router.delete('/vinculos/:vid', (req, res) => {
   res.json({ ok:true })
 })
 
-router.post('/reuniao/:id/votacao-simbolica', (req, res) => {
+router.post('/reuniao/:id/votacao-simbolica', async (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   const { itemId } = req.body
-  const present = getDb().prepare('SELECT name FROM presencas WHERE id_reuniao=? AND confirmed=1 ORDER BY name').all(String(req.params.id)).map(r=>r.name)
-  getDb().prepare('INSERT OR REPLACE INTO votacao_simbolica (id_reuniao,item_id,deputados) VALUES (?,?,?)').run(String(req.params.id), String(itemId), JSON.stringify(present))
-  getDb().prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status="aprovado_simbolico"').run(String(req.params.id), String(itemId))
-  req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status:'aprovado_simbolico' })
+  const id = String(req.params.id)
+  const allPresent = getDb().prepare('SELECT name FROM presencas WHERE id_reuniao=? AND confirmed=1 ORDER BY name').all(id).map(r=>r.name)
+  // filtra partidos sem vaga na comissão (mesma regra da nominal)
+  let present = allPresent
+  try {
+    const sessRow = getDb().prepare('SELECT raw FROM sessions WHERE id_reuniao=?').get(id)
+    let raw = {}
+    try { raw = JSON.parse(sessRow?.raw||'{}') } catch {}
+    const colegiados = raw.colegiadosRelacionados || []
+    if (colegiados.length) {
+      const byKey = new Map()
+      const vagasByParty = new Map()
+      for (const col of colegiados) {
+        const membres = await fetchLegis(`/colegiado/membros/${col.id}`) || []
+        membres.forEach(m => {
+          const k = normalize(m.parlamentar || '')
+          if (!byKey.has(k)) byKey.set(k, m)
+          if (!/substituto/i.test(m.ocupacao||'')) {
+            const pk = (m.federacao||m.partido||'Sem partido')
+            vagasByParty.set(pk, (vagasByParty.get(pk)||0)+1)
+          }
+        })
+      }
+      // portal para nao-membros
+      const det = await fetchLegis(`/parlamentar-portal?filtroLegislatura=20&filtroEmExercicioPesquisa=S`) || {}
+      const list = det.content || []
+      const portalMap = {}
+      list.forEach(p=>{ portalMap[normalize(p.txNomeParlamentar||'')] = p.txPartido||'' })
+      present = allPresent.filter(name=>{
+        const mem = byKey.get(normalize(name))
+        const party = mem ? (mem.federacao||mem.partido||'') : (portalMap[normalize(name)] || '')
+        return party && vagasByParty.has(party)
+      })
+    }
+  } catch {}
+  getDb().prepare('INSERT OR REPLACE INTO votacao_simbolica (id_reuniao,item_id,deputados) VALUES (?,?,?)').run(id, String(itemId), JSON.stringify(present))
+  getDb().prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status="aprovado_simbolico"').run(id, String(itemId))
+  req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id, itemId, status:'aprovado_simbolico' })
   res.json({ ok:true, deputados: present })
 })
 

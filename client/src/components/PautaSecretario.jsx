@@ -59,6 +59,7 @@ export default function PautaSecretario() {
   const [notas, setNotas] = useState({})
   const [needsManual, setNeedsManual] = useState({})
   const [membros, setMembros] = useState([])
+  const [partyPortal, setPartyPortal] = useState({})
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
 
@@ -105,6 +106,14 @@ export default function PautaSecretario() {
       })
     }
     setMembros([...seen.values()])
+    // party via portal para nao-membros
+    const pr = await fetch(`/api/legis/parlamentares-ativos`).catch(()=>null)
+    if (pr) {
+      const arr = await pr.json().catch(()=>[])
+      const map = {}
+      arr.forEach(p=>{ map[normalizeName(p.nome)] = p.partido || '' })
+      setPartyPortal(map)
+    }
   }
   const loadNotas = async () => {
     const r = await fetch(`/api/reuniao/${id}/anotacoes-secretario`).catch(()=>null)
@@ -303,7 +312,9 @@ export default function PautaSecretario() {
                           const grupos = new Map()
                           deputadosPresentes.forEach(p=>{
                             const mem = membros.find(m=>normalizeName(m.parlamentar)===normalizeName(p.name))
-                            const party = mem ? (mem.federacao||mem.partido||'Sem partido') : 'Sem partido'
+                            const party = mem ? (mem.federacao||mem.partido||'Sem partido') : (partyPortal[normalizeName(p.name)] || 'Sem partido')
+                            const vagas = partyMap.get(party) || 0
+                            if (!vagas) return // partido sem vaga não entra na nominal
                             if (!grupos.has(party)) grupos.set(party, [])
                             grupos.get(party).push(p)
                           })
@@ -358,7 +369,7 @@ export default function PautaSecretario() {
                 {status==='nao_deliberado' && <div className="text-xs mt-1 font-bold text-slate-600">Não deliberado</div>}
                 {!encerrada && (
                   <div className="mt-3">
-                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">Anotação do secretário (só neste painel e no relatório)</div>
+                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">Anotação do secretário</div>
                     <div className="flex gap-1">
                       <input value={notas[it.id]||''} onChange={e=>setNotas(n=>({...n, [it.id]: e.target.value}))} placeholder="Anotação interna…" className="flex-1 border rounded px-2 py-1.5 text-sm" />
                       <button onClick={()=>saveNota(it.id)} className="bg-slate-700 text-white rounded px-3 text-xs font-bold">Salvar</button>
