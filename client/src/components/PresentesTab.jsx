@@ -2,6 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useSocket } from '../hooks/useSocket.js'
 
 function normalizeName(n=''){ return n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim() }
+function formatName(n='') {
+  if (!n) return ''
+  return n.toLowerCase().split(' ').map(w => {
+    if (['de','da','do','das','dos','e'].includes(w)) return w
+    return w.charAt(0).toUpperCase() + w.slice(1)
+  }).join(' ')
+}
+function nameCls(n='') {
+  return n.length > 28 ? 'text-[11px] leading-tight' : 'text-xs'
+}
 
 export default function PresentesTab({ idReuniao }) {
   const [presencas, setPresencas] = useState([])
@@ -92,18 +102,19 @@ export default function PresentesTab({ idReuniao }) {
 
   const row = (p) => {
     const pres = presByKey.get(normalizeName(p.parlamentar))
+    const display = formatName(p.parlamentar)
     let cls, label, action
     if (!pres) { cls='bg-white';
       return (
-        <button key={p.nuMatriculaParlamentar||p.parlamentar} onClick={()=>marcarPresente(p.parlamentar)} className={`w-full text-left border rounded px-2 h-7 text-xs font-normal text-slate-800 ${cls} hover:bg-slate-50`}>{p.parlamentar}<span className="text-slate-500">{partiLabel(p)}</span></button>
+        <button key={p.nuMatriculaParlamentar||p.parlamentar} onClick={()=>marcarPresente(p.parlamentar)} className={`w-full text-left border rounded px-2 h-7 ${nameCls(display)} font-normal text-slate-800 ${cls} hover:bg-slate-50`}><span className={nameCls(display)=== 'text-[11px] leading-tight' ? 'text-[11px] leading-tight' : ''}>{display}</span><span className="text-slate-500">{partiLabel(p)}</span></button>
       )
     }
     if (pres.origem==='login' && !pres.confirmed) cls='bg-yellow-100 border-yellow-300'
     else if (pres.origem==='login' && pres.confirmed) cls='bg-green-200 border-green-400'
     else cls='bg-blue-100 border-blue-300' // manual confirmado
     return (
-      <div key={p.nuMatriculaParlamentar||p.parlamentar} className={`flex items-center justify-between border rounded px-2 h-7 text-xs font-normal ${cls}`}>
-        <span>{p.parlamentar}<span className="text-slate-600">{partiLabel(p)}</span> {pres.origem==='login' && pres.confirmed ? '✓' : ''}</span>
+      <div key={p.nuMatriculaParlamentar||p.parlamentar} className={`flex items-center justify-between border rounded px-2 h-7 ${nameCls(display)} font-normal ${cls}`}>
+        <span className="truncate"><span className={nameCls(display)}>{display}</span><span className="text-slate-600">{partiLabel(p)}</span> {pres.origem==='login' && pres.confirmed ? '✓' : ''}</span>
         <span className="flex items-center gap-1">
           {pres.origem==='login' && !pres.confirmed && <button onClick={()=>confirm(pres.id)} className="bg-alesp text-white rounded px-2 h-5 text-xs font-normal">Confirmar</button>}
           <button onClick={()=>setConfirmDelete(pres)} className="bg-red-600 text-white rounded w-5 h-5 text-xs font-normal" title="Excluir">×</button>
@@ -141,9 +152,10 @@ export default function PresentesTab({ idReuniao }) {
           <div className="text-[11px] font-bold text-slate-500 uppercase mt-2 mb-0.5">Outros presentes (não-membros)</div>
           <div className="grid gap-0.5">{extraNotInMembros.map(p=>{
             const cls = p.origem==='login' && !p.confirmed ? 'bg-yellow-100 border-yellow-300' : (p.origem==='login' && p.confirmed ? 'bg-green-200 border-green-400' : 'bg-blue-100 border-blue-300')
+            const disp = formatName(p.name)
             return (
               <div key={p.id} className={`flex items-center justify-between border rounded px-2 h-7 text-xs font-normal ${cls}`}>
-                <span>{p.name}</span>
+                <span className="truncate">{disp}</span>
                 <span className="flex items-center gap-1">
                   {p.origem==='login' && !p.confirmed && <button onClick={()=>confirm(p.id)} className="bg-alesp text-white rounded px-2 h-5 text-xs">Confirmar</button>}
                   <button onClick={()=>setConfirmDelete(p)} className="bg-red-600 text-white rounded w-5 h-5 text-xs">×</button>

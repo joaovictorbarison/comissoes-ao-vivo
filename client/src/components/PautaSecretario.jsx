@@ -59,7 +59,6 @@ export default function PautaSecretario() {
   const [notas, setNotas] = useState({})
   const [needsManual, setNeedsManual] = useState({})
   const [membros, setMembros] = useState([])
-  const [elegiveis, setElegiveis] = useState({})
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
 
@@ -233,6 +232,11 @@ export default function PautaSecretario() {
   }
 
   const registrarVoto = async (itemId, deputado, voto) => {
+    if (!voto) {
+      await fetch(`/api/reuniao/${id}/voto-nominal/${itemId}/${encodeURIComponent(deputado)}`, {method:'DELETE'})
+      loadNom()
+      return
+    }
     const outro = voto==='outro' ? (outroTxt[`${itemId}:${deputado}`]||'') : null
     await fetch(`/api/reuniao/${id}/voto-nominal`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, deputado, voto, outro})})
     loadNom()
@@ -303,26 +307,27 @@ export default function PautaSecretario() {
                             if (!grupos.has(party)) grupos.set(party, [])
                             grupos.get(party).push(p)
                           })
+                          const formatName = (n) => n.toLowerCase().split(' ').map(w => ['de','da','do','das','dos','e'].includes(w) ? w : w.charAt(0).toUpperCase()+w.slice(1)).join(' ')
                           return [...grupos.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([party, deps])=>{
                             const vagas = partyMap.get(party) || deps.length
                             const voted = deps.filter(d=>nomVotes.find(v=>v.deputado_name===d.name)).length
+                            const reached = voted >= vagas
                             return (
                               <div key={party} className="mb-1.5">
                                 <div className="text-[11px] font-bold text-slate-600 uppercase flex justify-between"><span>{party}</span><span>{voted}/{vagas}</span></div>
                                 <div className="grid gap-0.5 mt-0.5">
                                   {deps.map(p=>{
                                     const cur = nomVotes.find(v=>v.deputado_name===p.name)
-                                    const eligKey = `${it.id}:${p.name}`
-                                    const elig = elegiveis[eligKey] !== false
+                                    const disp = formatName(p.name)
+                                    const blocked = reached && !cur
                                     return (
-                                      <div key={p.id} className={`flex items-center gap-1 border rounded px-1.5 h-7 text-xs ${elig?'':'opacity-40'}`}>
-                                        <input type="checkbox" checked={elig} onChange={e=>setElegiveis(s=>({...s, [eligKey]: e.target.checked}))} className="w-3 h-3" title="Pode votar" />
-                                        <span className="flex-1 truncate">{p.name}</span>
-                                        <button disabled={!elig} onClick={()=>registrarVoto(it.id, p.name, 'favoravel')} className={`w-6 h-5 rounded text-xs font-bold ${cur?.voto==='favoravel'?'bg-green-300':'bg-slate-100'}`}>✓</button>
-                                        <button disabled={!elig} onClick={()=>registrarVoto(it.id, p.name, 'contrario')} className={`w-6 h-5 rounded text-xs font-bold ${cur?.voto==='contrario'?'bg-red-300':'bg-slate-100'}`}>✕</button>
-                                        <button disabled={!elig} onClick={()=>registrarVoto(it.id, p.name, 'outro')} className={`h-5 px-1.5 rounded text-xs ${cur?.voto==='outro'?'bg-slate-400':'bg-slate-100'}`}>Outro</button>
+                                      <div key={p.id} className={`flex items-center gap-1 border rounded px-1.5 h-7 text-xs ${blocked?'opacity-40':''}`}>
+                                        <span className={`flex-1 truncate ${disp.length>28?'text-[11px]':''}`}>{disp}</span>
+                                        <button disabled={blocked} onClick={()=>registrarVoto(it.id, p.name, cur?.voto==='favoravel' ? null : 'favoravel')} className={`w-6 h-5 rounded text-xs ${cur?.voto==='favoravel'?'bg-green-300':'bg-slate-100'}`}>✓</button>
+                                        <button disabled={blocked} onClick={()=>registrarVoto(it.id, p.name, cur?.voto==='contrario' ? null : 'contrario')} className={`w-6 h-5 rounded text-xs ${cur?.voto==='contrario'?'bg-red-300':'bg-slate-100'}`}>✕</button>
+                                        <button disabled={blocked} onClick={()=>registrarVoto(it.id, p.name, cur?.voto==='outro' ? null : 'outro')} className={`h-5 px-1.5 rounded text-xs ${cur?.voto==='outro'?'bg-slate-400':'bg-slate-100'}`}>Outro</button>
                                         {cur?.voto==='outro' && (
-                                          <input value={outroTxt[eligKey]||cur.outro_texto||''} onChange={e=>setOutroTxt(t=>({...t, [eligKey]: e.target.value}))} onBlur={()=>registrarVoto(it.id, p.name, 'outro')} placeholder="…" className="border rounded px-1 h-5 text-xs w-16" />
+                                          <input value={outroTxt[`${it.id}:${p.name}`]||cur.outro_texto||''} onChange={e=>setOutroTxt(t=>({...t, [`${it.id}:${p.name}`]: e.target.value}))} onBlur={()=>registrarVoto(it.id, p.name, 'outro')} placeholder="…" className="border rounded px-1 h-5 text-xs w-32" />
                                         )}
                                       </div>
                                     )

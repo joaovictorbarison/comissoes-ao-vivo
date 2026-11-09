@@ -355,6 +355,12 @@ router.get('/reuniao/:id/votos-nominais/:itemId', (req, res) => {
   res.json(rows)
 })
 
+router.delete('/reuniao/:id/voto-nominal/:itemId/:deputado', (req, res) => {
+  getDb().prepare('DELETE FROM votos_nominais WHERE id_reuniao=? AND item_id=? AND deputado_name=?').run(String(req.params.id), String(req.params.itemId), req.params.deputado)
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('voto_nominal_changed', { idReuniao:req.params.id, itemId:req.params.itemId })
+  res.json({ ok:true })
+})
+
 router.get('/reuniao/:id/votos-nominais', (req, res) => {
   const rows = getDb().prepare('SELECT item_id,deputado_name,voto,outro_texto FROM votos_nominais WHERE id_reuniao=?').all(String(req.params.id))
   const out = {}
