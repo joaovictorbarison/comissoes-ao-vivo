@@ -357,10 +357,16 @@ router.post('/reuniao/:id/votacao-simbolica', requireAuth, async (req, res) => {
   const { itemId, decision } = req.body
   const id = String(req.params.id)
   const statusFinal = decision === 'rejeitado' ? 'rejeitado_simbolico' : 'aprovado_simbolico'
-  const allPresent = getDb().prepare('SELECT name FROM presencas WHERE id_reuniao=? AND confirmed=1 ORDER BY name').all(id).map(r=>r.name)
+  const db = getDb()
+  const others = db.prepare("SELECT item_id FROM official_status WHERE id_reuniao=? AND status IN ('em_discussao','em_votacao') AND item_id<>?").all(id, String(itemId))
+  others.forEach(o => {
+    db.prepare('UPDATE official_status SET status=? WHERE id_reuniao=? AND item_id=?').run('pendente', id, o.item_id)
+    req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id, itemId: o.item_id, status:'pendente' })
+  })
+  const allPresent = db.prepare('SELECT name FROM presencas WHERE id_reuniao=? AND confirmed=1 ORDER BY name').all(id).map(r=>r.name)
   let grouped = { efetivos: [], substitutos: [], outros: [] }
   try {
-    const sessRow = getDb().prepare('SELECT raw FROM sessions WHERE id_reuniao=?').get(id)
+    const sessRow = db.prepare('SELECT raw FROM sessions WHERE id_reuniao=?').get(id)
     let raw = {}
     try { raw = JSON.parse(sessRow?.raw||'{}') } catch {}
     const colegiados = raw.colegiadosRelacionados || []
@@ -428,7 +434,14 @@ router.get('/reuniao/:id/votos-nominais', (req, res) => {
 router.post('/reuniao/:id/votacao-nominal/finalizar', requireAuth, (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   const { itemId, decisaoManual } = req.body
-  const votes = getDb().prepare('SELECT voto FROM votos_nominais WHERE id_reuniao=? AND item_id=?').all(String(req.params.id), String(itemId))
+  const id = String(req.params.id)
+  const db = getDb()
+  const others = db.prepare("SELECT item_id FROM official_status WHERE id_reuniao=? AND status IN ('em_discussao','em_votacao') AND item_id<>?").all(id, String(itemId))
+  others.forEach(o => {
+    db.prepare('UPDATE official_status SET status=? WHERE id_reuniao=? AND item_id=?').run('pendente', id, o.item_id)
+    req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id, itemId: o.item_id, status:'pendente' })
+  })
+  const votes = db.prepare('SELECT voto FROM votos_nominais WHERE id_reuniao=? AND item_id=?').all(id, String(itemId))
   const fav = votes.filter(v=>v.voto==='favoravel').length
   const contra = votes.filter(v=>v.voto==='contrario').length
   const outro = votes.filter(v=>v.voto==='outro').length
