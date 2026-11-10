@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.jsx'
 import Identificacao from './components/Identificacao.jsx'
 import ListaReunioes from './components/ListaReunioes.jsx'
@@ -131,16 +131,21 @@ function VinculoBar() {
   return null
 }
 
-export default function App() {
+function AuthExpiredHandler() {
   const navigate = useNavigate()
   useEffect(()=>{
     const h = () => navigate('/identificacao')
     window.addEventListener('auth:expired', h)
     return ()=>window.removeEventListener('auth:expired', h)
   }, [navigate])
+  return null
+}
+
+export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <AuthExpiredHandler />
         <div className="min-h-screen bg-slate-50">
           <Header />
           <VinculoBar />
