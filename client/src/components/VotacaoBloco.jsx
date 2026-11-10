@@ -69,7 +69,8 @@ export default function VotacaoBloco() {
         <button onClick={()=>aplicar('rejeitado_relator')} className="rounded px-3 py-2 text-sm bg-red-300 text-red-900 font-bold">Rejeitado</button>
         <button onClick={desativar} className="rounded px-3 py-2 text-sm bg-slate-700 text-white font-bold" title="Desativa o bloco na TV e volta para a pauta normal">Desativar na TV</button>
       </div>
-      <div className="grid grid-cols-10 gap-px mt-2">
+      <div className="w-fit mt-2">
+        <div className="grid grid-cols-10 gap-px">
         {items.map(it=>{
           const sel = selected.has(String(it.id))
           const st = it.status_oficial
@@ -86,6 +87,7 @@ export default function VotacaoBloco() {
             </button>
           )
         })}
+        </div>
       </div>
     </div>
   )
