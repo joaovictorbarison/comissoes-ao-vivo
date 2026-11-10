@@ -34,7 +34,7 @@ export default function VotacaoBloco() {
   const toggle = (itemId) => {
     setSelected(s => {
       const n = new Set(s)
-      if (n.has(String(itemId))) n.delete(String(itemId)) else n.add(String(itemId))
+      if (n.has(String(itemId))) n.delete(String(itemId)); else n.add(String(itemId))
       return n
     })
   }
