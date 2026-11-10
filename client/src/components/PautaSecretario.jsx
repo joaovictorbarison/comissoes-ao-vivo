@@ -31,15 +31,16 @@ function cardClass(status) {  if (status==='aprovado_relator' || status==='aprov
   if (status==='nao_deliberado') return 'border-slate-300 bg-slate-100'
   return 'border-slate-200 bg-white'
 }
+function isAprovado(s){ return s==='aprovado_relator' || s==='aprovado_simbolico' || s==='aprovado_nominal' }
+function isRejeitado(s){ return s==='rejeitado_relator' || s==='rejeitado_nominal' || s==='rejeitado_simbolico' }
 function btnClass(actionKey, currentStatus) {
-  if (actionKey!==currentStatus) return 'bg-slate-100 hover:bg-slate-200'
-  if (actionKey==='aprovado_relator' || currentStatus==='aprovado_simbolico' || currentStatus==='aprovado_nominal') return 'bg-green-300 text-green-900 font-bold'
-  if (actionKey==='rejeitado_relator' || currentStatus==='rejeitado_nominal' || currentStatus==='rejeitado_simbolico') return 'bg-red-300 text-red-900 font-bold'
-  if (actionKey==='vista') return 'bg-orange-300 text-orange-900 font-bold'
-  if (actionKey==='retirado') return 'bg-slate-400 text-slate-900 font-bold'
-  if (actionKey==='em_discussao') return 'bg-blue-300 text-blue-900 font-bold'
-  if (actionKey==='em_votacao') return 'bg-yellow-300 text-yellow-900 font-bold animate-pulse'
-  return 'bg-slate-100 font-bold'
+  if (actionKey==='aprovado_relator' && isAprovado(currentStatus)) return 'bg-green-300 text-green-900 font-bold'
+  if (actionKey==='rejeitado_relator' && isRejeitado(currentStatus)) return 'bg-red-300 text-red-900 font-bold'
+  if (actionKey==='vista' && currentStatus==='vista') return 'bg-orange-300 text-orange-900 font-bold'
+  if (actionKey==='retirado' && currentStatus==='retirado') return 'bg-slate-400 text-slate-900 font-bold'
+  if (actionKey==='em_discussao' && currentStatus==='em_discussao') return 'bg-blue-300 text-blue-900 font-bold'
+  if (actionKey==='em_votacao' && currentStatus==='em_votacao') return 'bg-yellow-300 text-yellow-900 font-bold animate-pulse'
+  return 'bg-slate-100 hover:bg-slate-200'
 }
 
 export default function PautaSecretario() {
