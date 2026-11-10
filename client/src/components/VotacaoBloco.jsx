@@ -63,10 +63,10 @@ export default function VotacaoBloco() {
         </div>
       </div>
       <div className="flex gap-2 flex-wrap mt-3">
-        <button onClick={()=>aplicar('em_discussao')} className="rounded px-3 py-2 text-sm bg-blue-300 text-blue-900 font-bold">Em discussão</button>
-        <button onClick={()=>aplicar('em_votacao')} className="rounded px-3 py-2 text-sm bg-yellow-300 text-yellow-900 font-bold">Em votação</button>
-        <button onClick={()=>aplicar('aprovado_relator')} className="rounded px-3 py-2 text-sm bg-green-300 text-green-900 font-bold">Aprovado</button>
-        <button onClick={()=>aplicar('rejeitado_relator')} className="rounded px-3 py-2 text-sm bg-red-300 text-red-900 font-bold">Rejeitado</button>
+        <button onClick={()=>aplicar('em_discussao')} className={`rounded px-3 py-2 text-sm font-bold ${status==='em_discussao'?'bg-blue-600 text-white':'bg-blue-300 text-blue-900'}`}>Em discussão</button>
+        <button onClick={()=>aplicar('em_votacao')} className={`rounded px-3 py-2 text-sm font-bold ${status==='em_votacao'?'bg-yellow-600 text-white':'bg-yellow-300 text-yellow-900'}`}>Em votação</button>
+        <button onClick={()=>aplicar('aprovado_relator')} className={`rounded px-3 py-2 text-sm font-bold ${status==='aprovado_relator'?'bg-green-600 text-white':'bg-green-300 text-green-900'}`}>Aprovado</button>
+        <button onClick={()=>aplicar('rejeitado_relator')} className={`rounded px-3 py-2 text-sm font-bold ${status==='rejeitado_relator'?'bg-red-600 text-white':'bg-red-300 text-red-900'}`}>Rejeitado</button>
         <button onClick={desativar} className="rounded px-3 py-2 text-sm bg-slate-700 text-white font-bold" title="Desativa o bloco na TV e volta para a pauta normal">Desativar na TV</button>
       </div>
       <div className="w-fit mt-2">

@@ -111,8 +111,8 @@ export default function TvDisplay() {
     const blocoItems = items.filter(i => bloco.itemIds.includes(String(i.id)))
     const nums = blocoItems.map(i=>i.nuOrdem).sort((a,b)=>a-b).join(', ')
     const st = bloco.status || 'em_discussao'
-    const title = st==='em_votacao' ? 'VOTAÇÃO EM BLOCO' : (st==='aprovado_relator'?'APROVADO':st==='rejeitado_relator'?'REJEITADO':st==='vista'?'VISTA':'VOTAÇÃO EM BLOCO')
-    const pillClass = statusColor(st==='em_votacao'?'em_votacao':st)
+    const title = st==='em_votacao' ? 'EM VOTAÇÃO' : (st==='aprovado_relator'?'APROVADO':st==='rejeitado_relator'?'REJEITADO':st==='vista'?'VISTA':'EM DISCUSSÃO')
+    const pillClass = statusColor(st==='em_votacao'?'em_votacao':st==='aprovado_relator'?'aprovado_relator':st==='rejeitado_relator'?'rejeitado_relator':st==='vista'?'vista':'em_discussao')
     return (
       <div className="bg-black text-white min-h-screen flex items-center justify-center p-6">
         <div className="text-center w-full max-w-4xl border-2 border-blue-800 rounded-2xl p-10 bg-gradient-to-b from-alesp to-black">
