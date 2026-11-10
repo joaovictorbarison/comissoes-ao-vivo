@@ -82,11 +82,12 @@ export default function TvDisplay() {
   const active = items.find(i=>String(i.id)===String(currentId)) || items.find(i=>String(i.id)===String(resultItemId)) || initialPick(items)
   if (!active) return <div className="bg-black text-white min-h-screen flex items-center justify-center">Aguardando item…</div>
   const isIdle = !data.iniciada && (active?.status_oficial==='pendente' && !items.some(i=>i.status_oficial==='em_votacao' || i.status_oficial==='em_discussao'))
+  const showSplash = isIdle || (!items.some(i=>i.status_oficial==='em_votacao' || i.status_oficial==='em_discussao' || isTerminal(i)) && !resultItemId)
   const comissaoNome = data.solicitante || data.colegiadosRelacionados?.map(c=>c.nome).join('; ') || ''
   const numTipo = data.tituloReuniao || (data.nuReuniao != null ? `${data.nuReuniao}ª Reunião ${data.tipoConvocacao||'Ordinária'}` : '')
   const totalItens = items.length
 
-  if (isIdle) {
+  if (showSplash) {
     return (
       <div className="bg-black text-white min-h-screen flex items-center justify-center p-6">
         <div className="text-center w-full max-w-4xl border-2 border-blue-800 rounded-2xl p-10 bg-gradient-to-b from-alesp to-black">
@@ -94,7 +95,7 @@ export default function TvDisplay() {
           {comissaoNome && <div className="text-3xl font-black mt-4 opacity-95 leading-tight">{comissaoNome}</div>}
           <div className="text-2xl font-bold mt-6 opacity-90">{numTipo}</div>
           <div className="text-2xl font-bold mt-2 opacity-90">{totalItens} itens em pauta</div>
-          <div className="inline-block bg-slate-700 text-white font-extrabold px-6 py-2 rounded-full mt-6 text-lg tracking-wide">AGUARDANDO INÍCIO</div>
+          {!data.iniciada && <div className="inline-block bg-slate-700 text-white font-extrabold px-6 py-2 rounded-full mt-6 text-lg tracking-wide">AGUARDANDO INÍCIO</div>}
         </div>
       </div>
     )
