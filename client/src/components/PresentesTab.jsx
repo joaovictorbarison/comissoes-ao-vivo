@@ -198,7 +198,6 @@ export default function PresentesTab({ idReuniao }) {
           </div>
         ))}
       </div>
-      )}
       </>
       )}
       {confirmDelete && (
