@@ -111,13 +111,12 @@ export default function TvDisplay() {
     <div className="bg-black text-white min-h-screen flex items-center justify-center p-6">
       <div className="text-center w-full max-w-4xl border-2 border-blue-800 rounded-2xl p-10 bg-gradient-to-b from-alesp to-black">
         <div className="text-sm uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
-        {comissaoNome && <div className="text-base font-bold mt-1 opacity-90">{comissaoNome}</div>}
+        {comissaoNome && <div className="text-lg font-bold mt-1 opacity-90">{comissaoNome}</div>}
         <div className={`inline-block font-extrabold px-4 py-1 rounded-full mt-3 ${pillClass}`}>{title}</div>
         <div className="text-2xl font-bold mt-4">ITEM {active.nuOrdem} - {proc.txDescricao}</div>
         <div className="text-xl font-bold mt-2">{proc.txEmenta}</div>
         <div className="text-base mt-3 opacity-90">Autor: {proc.txNomeAutores}</div>
         {vote.autores && vote.conclusao && <div className="text-base opacity-90">Relator: {vote.autores} — {vote.conclusao}</div>}
-        {label && <div className="text-xl font-black mt-3 text-yellow-300">{label}</div>}
       </div>
     </div>
   )
