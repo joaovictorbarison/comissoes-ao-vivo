@@ -177,6 +177,7 @@ export default function PautaSecretario() {
     if (encerrada) return
     const itemId = item.id
     const current = item.status_oficial || 'pendente'
+    if (status !== 'vista') setVistaOpen(null)
     if (status==='em_votacao') {
       // abre painel simbólica/nominal
       setVotTipo(t=>({...t, [itemId]: t[itemId] || 'simbolica'}))
