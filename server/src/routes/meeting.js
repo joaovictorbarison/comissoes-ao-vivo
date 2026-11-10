@@ -37,7 +37,8 @@ router.get('/reuniao/:id', async (req, res) => {
   const db = getDb()
   // cache pauta from Legis if not already cached
   const cached = db.prepare('SELECT COUNT(*) c FROM agenda_items WHERE id_reuniao=?').get(id)
-  const needRefresh = !cached || cached.c <= 10
+  const sess0 = db.prepare('SELECT raw FROM sessions WHERE id_reuniao=?').get(id)
+  const needRefresh = !sess0 || !sess0.raw || (cached.c === 0)
   if (needRefresh) {
     const detail = await fetchLegis(`/colegiado/reuniao/${id}`) || {}
     const pauta = await fetchLegis(`/colegiado/reuniao/${id}/pauta?size=500`) || []
@@ -527,16 +528,20 @@ router.post('/reuniao/:id/vista-bloco', (req, res) => {
   if (!ids.length || !ns.length) return res.status(400).json({ error:'itemIds[] e names[] obrigatórios' })
   const db = getDb()
   db.prepare('UPDATE sessions SET iniciada=1 WHERE id_reuniao=?').run(String(req.params.id))
-  const del = db.prepare('DELETE FROM vistas WHERE id_reuniao=? AND item_id=?')
   const ins = db.prepare('INSERT INTO vistas (id_reuniao,item_id,name) VALUES (?,?,?)')
   ids.forEach(iid => {
-    del.run(String(req.params.id), iid)
-    ns.forEach(n => ins.run(String(req.params.id), iid, n))
+    // merge: mantém vistas antigas e adiciona as novas (deduplica por nome normalizado)
+    const existing = db.prepare('SELECT name FROM vistas WHERE id_reuniao=? AND item_id=?').all(String(req.params.id), iid).map(r=>r.name)
+    const byKey = new Map()
+    ;[...existing, ...ns].forEach(n => { const v = String(n).trim(); if (v) byKey.set(normalize(v), v) })
+    db.prepare('DELETE FROM vistas WHERE id_reuniao=? AND item_id=?').run(String(req.params.id), iid)
+    ;[...byKey.values()].forEach(n => ins.run(String(req.params.id), iid, n))
     db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), iid, 'vista')
   })
   ids.forEach(iid => {
-    req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId: iid, status:'vista' })
+    req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId: iid, status:'vista', vistaBatch: true })
   })
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('vista_bloco_registered', { idReuniao:req.params.id, itemIds: ids, names: ns })
   res.json({ ok:true })
 })
 

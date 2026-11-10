@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket.js'
 import { useProcessoLinks } from '../hooks/useProcessoLinks.js'
 import { proposituraUrl } from '../lib/legisLinks.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 export default function VotacaoBloco() {
   const { id } = useParams()
+  const { authFetch } = useAuth()
   const [items, setItems] = useState([])
   const [selected, setSelected] = useState(new Set())
   const [status, setStatus] = useState('em_discussao')
@@ -15,23 +17,28 @@ export default function VotacaoBloco() {
   const linksMap = useProcessoLinks(items)
 
   const load = async () => {
-    const r = await fetch(`/api/reuniao/${id}`)
-    const j = await r.json()
+    const r = await authFetch(`/api/reuniao/${id}`).catch(()=>null)
+    if (!r || r.ok === false) return
+    const j = await r.json().catch(()=>null)
+    if (!j) return
     setItems(j.items || j || [])
     setMeeting(j)
-    const b = await fetch(`/api/reuniao/${id}/bloco`).then(r=>r.json()).catch(()=>({}))
-    // selected só reflete seleção em andamento; não restaurar do bloco salvo
+    const b = await authFetch(`/api/reuniao/${id}/bloco`).then(r=>r.json()).catch(()=>({}))
     if (b.status) setStatus(b.status)
-    const bl = await fetch(`/api/reuniao/${id}/blocos`).then(r=>r.json()).catch(()=>[])
+    const bl = await authFetch(`/api/reuniao/${id}/blocos`).then(r=>r.json()).catch(()=>[])
     setBlocos(Array.isArray(bl) ? bl : [])
+  }
+  const reloadTimer = useRef(null)
+  const on = () => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current)
+    reloadTimer.current = setTimeout(()=>load(), 150)
   }
   useEffect(()=>{ if(id) load() }, [id])
   useEffect(()=>{
     if(!socket) return
-    const on = () => load()
     socket.on('bloco_changed', on)
     socket.on('official_status_changed', on)
-    return ()=>{ socket.off('bloco_changed', on); socket.off('official_status_changed', on) }
+    return ()=>{ if (reloadTimer.current) clearTimeout(reloadTimer.current); socket.off('bloco_changed', on); socket.off('official_status_changed', on) }
   }, [socket])
 
   const toggle = (itemId) => {
@@ -44,13 +51,13 @@ export default function VotacaoBloco() {
 
   const aplicar = async (st) => {
     setStatus(st)
-    await fetch(`/api/reuniao/${id}/bloco`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemIds: [...selected], status: st})})
+    await authFetch(`/api/reuniao/${id}/bloco`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemIds: [...selected], status: st})})
     const isTerminal = ['aprovado_relator','rejeitado_relator','vista','retirado'].includes(st)
     if (isTerminal) setSelected(new Set())
     load()
   }
   const desativar = async () => {
-    await fetch(`/api/reuniao/${id}/bloco`, {method:'DELETE'})
+    await authFetch(`/api/reuniao/${id}/bloco`, {method:'DELETE'})
     setSelected(new Set())
     load()
   }

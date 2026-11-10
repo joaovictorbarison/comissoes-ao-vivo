@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket.js'
 import { useProcessoLinks } from '../hooks/useProcessoLinks.js'
@@ -69,24 +69,29 @@ export default function PautaSecretario() {
   const linksMap = useProcessoLinks(items)
 
   const load = async () => {
-    const r = await authFetch(`/api/reuniao/${id}`)
-    const j = await r.json()
+    const r = await authFetch(`/api/reuniao/${id}`).catch(()=>null)
+    if (!r || r.ok === false) return
+    const j = await r.json().catch(()=>null)
+    if (!j) return
     setItems(j.items || j || [])
     setMeeting(j)
     setEncerrada(!!j.encerrada)
     setIniciada(!!j.iniciada)
   }
   const loadPres = async () => {
-    const r = await authFetch(`/api/reuniao/${id}/presencas`)
-    setPresencas(await r.json().catch(()=>[]))
+    const r = await authFetch(`/api/reuniao/${id}/presencas`).catch(()=>null)
+    if (!r || r.ok === false) return
+    const j = await r.json().catch(()=>[])
+    setPresencas(Array.isArray(j) ? j : [])
   }
   const loadVistas = async () => {
-    const r = await authFetch(`/api/reuniao/${id}/vistas`)
+    const r = await authFetch(`/api/reuniao/${id}/vistas`).catch(()=>null)
+    if (!r || r.ok === false) return
     setVistas(await r.json().catch(()=>({})))
   }
   const loadNom = async () => {
     const r = await authFetch(`/api/reuniao/${id}/votos-nominais`).catch(()=>null)
-    if (r) setVotosNom(await r.json().catch(()=>({})))
+    if (r && r.ok !== false) setVotosNom(await r.json().catch(()=>({})))
   }
   const loadMembros = async () => {
     const r = await authFetch(`/api/reuniao/${id}`).catch(()=>null)
@@ -132,16 +137,20 @@ export default function PautaSecretario() {
       setEncerrada(!!j[String(id)]?.encerrada)
     }
   }
+  const reloadTimer = useRef(null)
+  const on = () => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current)
+    reloadTimer.current = setTimeout(()=>{ load(); loadPres(); loadVistas(); loadEstado(); loadNom() }, 150)
+  }
   useEffect(()=>{ if(id){ load(); loadPres(); loadVistas(); loadEstado(); loadNom(); loadNotas(); loadMembros() } }, [id])
   useEffect(()=>{
     if(!socket) return
-    const on = () => { load(); loadPres(); loadVistas(); loadEstado(); loadNom(); loadNotas(); loadMembros() }
     socket.on('official_status_changed', on)
     socket.on('active_item_changed', on)
     socket.on('presence_pending', on)
     socket.on('presence_confirmed', on)
     socket.on('voto_nominal_changed', on)
-    return ()=>{ socket.off('official_status_changed', on); socket.off('active_item_changed', on); socket.off('presence_pending', on); socket.off('presence_confirmed', on); socket.off('voto_nominal_changed', on) }
+    return ()=>{ if (reloadTimer.current) clearTimeout(reloadTimer.current); socket.off('official_status_changed', on); socket.off('active_item_changed', on); socket.off('presence_pending', on); socket.off('presence_confirmed', on); socket.off('voto_nominal_changed', on) }
   }, [socket])
 
   const iniciar = async () => {

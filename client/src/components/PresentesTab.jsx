@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { useSocket } from '../hooks/useSocket.js'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -27,11 +27,14 @@ export default function PresentesTab({ idReuniao }) {
   const socket = useSocket(idReuniao)
 
   const load = async () => {
-    const r = await authFetch(`/api/reuniao/${idReuniao}/presencas`)
-    setPresencas(await r.json().catch(()=>[]))
+    const r = await authFetch(`/api/reuniao/${idReuniao}/presencas`).catch(()=>null)
+    if (!r || r.ok === false) return
+    const j = await r.json().catch(()=>[])
+    setPresencas(Array.isArray(j) ? j : [])
   }
   const loadMembros = async () => {
-    const r = await authFetch(`/api/reuniao/${idReuniao}`)
+    const r = await authFetch(`/api/reuniao/${idReuniao}`).catch(()=>null)
+    if (!r || r.ok === false) return
     const j = await r.json().catch(()=>({}))
     const cols = j.colegiadosRelacionados || []
     const ids = cols.map(c=>c.id).filter(Boolean)
@@ -61,14 +64,17 @@ export default function PresentesTab({ idReuniao }) {
       setPartyPortal(map)
     }
   }
+  const reloadTimer = useRef(null)
+  const on = () => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current)
+    reloadTimer.current = setTimeout(()=>load(), 150)
+  }
   useEffect(()=>{ load(); loadMembros() }, [idReuniao])
   useEffect(()=>{
     if(!socket) return
-    const on = () => { load(); loadMembros() }
     socket.on('presence_pending', on)
     socket.on('presence_confirmed', on)
-    socket.on('official_status_changed', on)
-    return ()=>{ socket.off('presence_pending', on); socket.off('presence_confirmed', on); socket.off('official_status_changed', on) }
+    return ()=>{ if (reloadTimer.current) clearTimeout(reloadTimer.current); socket.off('presence_pending', on); socket.off('presence_confirmed', on) }
   }, [socket])
 
   const confirm = async (pid) => {

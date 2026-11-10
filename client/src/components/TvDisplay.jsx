@@ -2,6 +2,9 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket.js'
 
+function formatName(n='') {
+  return String(n||'').trim().toLowerCase().split(/\s+/).map(w => ['de','da','do','das','dos','e'].includes(w) ? w : w.charAt(0).toUpperCase()+w.slice(1)).join(' ')
+}
 function resultLabel(item, vistas) {
   const st = item?.status_oficial
   if (st==='aprovado_relator' || st==='aprovado_simbolico' || st==='aprovado_nominal') return 'APROVADO'
@@ -9,7 +12,7 @@ function resultLabel(item, vistas) {
   if (st==='retirado') return 'RETIRADO'
   if (st==='vista') {
     const names = vistas[item.id] || []
-    return names.length ? `VISTA: ${names.join(', ')}` : 'VISTA'
+    return names.length ? `Pedido de Vista: ${names.map(formatName).join(', ')}` : 'Pedido de Vista'
   }
   return null
 }
@@ -33,12 +36,15 @@ export default function TvDisplay() {
   const [currentId, setCurrentId] = useState(null)
   const [resultItemId, setResultItemId] = useState(null)
   const [bloco, setBloco] = useState(null)
+  const [vistaBloco, setVistaBloco] = useState(null)
   const timerRef = useRef(null)
   const socket = useSocket(id)
 
   const load = async () => {
-    const r = await fetch(`/api/reuniao/${id}`)
-    const j = await r.json()
+    const r = await fetch(`/api/reuniao/${id}`).catch(()=>null)
+    if (!r || r.ok === false) return data
+    const j = await r.json().catch(()=>null)
+    if (!j) return data
     setData(j)
     const v = await fetch(`/api/reuniao/${id}/vistas`).then(r=>r.json()).catch(()=>({}))
     setVistas(v)
@@ -62,8 +68,15 @@ export default function TvDisplay() {
       const fresh = await load()
       const items = fresh.items || []
       const target = items.find(i=>String(i.id)===String(payload.itemId))
-      if (!target) return
       const st = payload.status
+      if (payload?.vistaBatch) return // evento do lote: quem atualiza o splash e o handler vista_bloco_registered
+      // Qualquer evento normal (inclusive vista registrada pela pauta) sai do Splash consolidado.
+      if (target) {
+        setVistaBloco(null)
+      } else if (!target) {
+        setVistaBloco(null)
+      }
+      if (!target) return
       if (isTerminal(target)) {
         setCurrentId(target.id)
         setResultItemId(target.id)
@@ -76,12 +89,20 @@ export default function TvDisplay() {
       }
     }
     const onBloco = async () => { await load() }
+    const onVistaBloco = async (payload) => {
+      const fresh = (await load()) || data
+      const its = fresh?.items || []
+      const ids = payload?.itemIds || []
+      const nums = its.filter(i=>ids.includes(String(i.id))).map(i=>i.nuOrdem).sort((a,b)=>a-b).join(', ')
+      setVistaBloco({ names: (payload?.names || []).map(formatName), nums })
+    }
     socket.on('official_status_changed', onStatus)
     socket.on('active_item_changed', onStatus)
     socket.on('bloco_changed', onBloco)
-    return ()=>{ socket.off('official_status_changed', onStatus); socket.off('active_item_changed', onStatus); socket.off('bloco_changed', onBloco) }
+    socket.on('vista_bloco_registered', onVistaBloco)
+    return ()=>{ socket.off('official_status_changed', onStatus); socket.off('active_item_changed', onStatus); socket.off('bloco_changed', onBloco); socket.off('vista_bloco_registered', onVistaBloco) }
   }, [socket])
-  useEffect(()=>()=>{ if(timerRef.current) clearTimeout(timerRef.current) }, [])
+  useEffect(()=>()=>{ if(timerRef.current) clearTimeout(timerRef.current); }, [])
 
   const items = data.items || []
   const active = items.find(i=>String(i.id)===String(currentId)) || items.find(i=>String(i.id)===String(resultItemId)) || initialPick(items)
@@ -91,6 +112,23 @@ export default function TvDisplay() {
   const comissaoNome = data.solicitante || data.colegiadosRelacionados?.map(c=>c.nome).join('; ') || ''
   const numTipo = data.tituloReuniao || (data.nuReuniao != null ? `${data.nuReuniao}ª Reunião ${data.tipoConvocacao||'Ordinária'}` : '')
   const totalItens = items.length
+
+  // Tela de pedido de vista (persiste até o status mudar)
+  if (vistaBloco) {
+    const plural = vistaBloco.names.length > 1
+    return (
+      <div className="bg-black text-white min-h-screen flex items-center justify-center p-6">
+        <div className="text-center w-full max-w-4xl border-2 border-blue-800 rounded-2xl p-10 bg-gradient-to-b from-alesp to-black">
+          <div className="text-sm uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
+          {comissaoNome && <div className="text-lg font-bold mt-1 opacity-90">{comissaoNome}</div>}
+          <div className="inline-block bg-orange-300 text-orange-900 font-extrabold px-4 py-1 rounded-full mt-4">PEDIDO DE VISTA</div>
+          <div className="text-2xl font-bold mt-5">{plural ? 'Solicitantes:' : 'Solicitante:'}</div>
+          <div className="text-3xl font-black mt-1 opacity-95">{vistaBloco.names.join(', ')}</div>
+          <div className="text-2xl font-bold mt-4">{vistaBloco.nums.includes(',') ? 'Itens:' : 'Item:'} {vistaBloco.nums}</div>
+        </div>
+      </div>
+    )
+  }
 
   if (showSplash) {
     return (
