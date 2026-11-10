@@ -20,7 +20,11 @@ export default function VotacaoBloco() {
     setItems(j.items || j || [])
     setMeeting(j)
     const b = await fetch(`/api/reuniao/${id}/bloco`).then(r=>r.json()).catch(()=>({}))
-    if (b.itemIds) setSelected(new Set(b.itemIds))
+    if (b.itemIds && b.ativo && (b.status === 'em_discussao' || b.status === 'em_votacao')) {
+      setSelected(new Set(b.itemIds))
+    } else {
+      setSelected(new Set())
+    }
     if (b.status) setStatus(b.status)
     const bl = await fetch(`/api/reuniao/${id}/blocos`).then(r=>r.json()).catch(()=>[])
     setBlocos(Array.isArray(bl) ? bl : [])
