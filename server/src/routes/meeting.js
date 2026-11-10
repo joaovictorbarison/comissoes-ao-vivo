@@ -519,4 +519,25 @@ router.get('/reuniao/:id/blocos', (req, res) => {
   res.json(rows.map(r=>({ id:r.id, numero:r.numero, itemIds: JSON.parse(r.item_ids), resultado:r.resultado, createdAt:r.created_at })))
 })
 
+router.post('/reuniao/:id/vista-bloco', (req, res) => {
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
+  const { itemIds, names } = req.body || {}
+  const ids = Array.isArray(itemIds) ? itemIds.map(String) : []
+  const ns = Array.isArray(names) ? names : []
+  if (!ids.length || !ns.length) return res.status(400).json({ error:'itemIds[] e names[] obrigatórios' })
+  const db = getDb()
+  db.prepare('UPDATE sessions SET iniciada=1 WHERE id_reuniao=?').run(String(req.params.id))
+  const del = db.prepare('DELETE FROM vistas WHERE id_reuniao=? AND item_id=?')
+  const ins = db.prepare('INSERT INTO vistas (id_reuniao,item_id,name) VALUES (?,?,?)')
+  ids.forEach(iid => {
+    del.run(String(req.params.id), iid)
+    ns.forEach(n => ins.run(String(req.params.id), iid, n))
+    db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), iid, 'vista')
+  })
+  ids.forEach(iid => {
+    req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId: iid, status:'vista' })
+  })
+  res.json({ ok:true })
+})
+
 module.exports = router
