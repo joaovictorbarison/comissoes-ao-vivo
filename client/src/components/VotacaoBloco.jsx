@@ -45,7 +45,8 @@ export default function VotacaoBloco() {
   const aplicar = async (st) => {
     setStatus(st)
     await fetch(`/api/reuniao/${id}/bloco`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemIds: [...selected], status: st})})
-    setSelected(new Set())
+    const isTerminal = ['aprovado_relator','rejeitado_relator','vista','retirado'].includes(st)
+    if (isTerminal) setSelected(new Set())
     load()
   }
   const desativar = async () => {
