@@ -3,6 +3,7 @@ const { fetchLegis } = require('../legisClient.js')
 const { getDb } = require('../db.js')
 const { generatePdf, generateAssessoriaPdf } = require('../pdf/report.js')
 const router = express.Router()
+const { requireAuth } = require('../auth.js')
 
 function normalize(name=''){ return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim() }
 function formatName(name='') {
@@ -17,7 +18,18 @@ router.post('/auth/secretario', (req, res) => {
   const expected = (process.env.SECRETARIO_SENHA || 'dac2027').trim()
   const sent = typeof req.body?.password === 'string' ? req.body.password.trim() : ''
   const ok = sent === expected
-  res.status(ok ? 200 : 401).json({ ok })
+  if (!ok) return res.status(401).json({ ok:false })
+  const { signToken } = require('../auth.js')
+  const token = signToken({ role:'secretario', name: (req.body?.name || 'Secretário').trim() })
+  res.json({ ok:true, token })
+})
+
+router.post('/auth/identificar', (req, res) => {
+  const { profile, name, deputadoVinculado } = req.body || {}
+  if (!profile || !name) return res.status(400).json({ error:'profile e name obrigatórios' })
+  const { signToken } = require('../auth.js')
+  const token = signToken({ role: profile, name, deputadoVinculado: deputadoVinculado || null })
+  res.json({ ok:true, token })
 })
 
 router.get('/reuniao/:id', async (req, res) => {
@@ -49,7 +61,7 @@ router.get('/reuniao/:id', async (req, res) => {
   res.json({ ...JSON.parse(sess.raw||'{}'), items, active_item_id: sess.active_item_id || null, encerrada, iniciada: !!sess.iniciada })
 })
 
-router.post('/reuniao/:id/status', (req, res) => {
+router.post('/reuniao/:id/status', requireAuth, (req, res) => {
   const { itemId, status } = req.body
   const allowed = ['pendente','em_discussao','em_votacao','aprovado_relator','rejeitado_relator','aprovado_separado','vista','retirado']
   if (!allowed.includes(status)) return res.status(400).json({ error:'status inválido' })
@@ -63,7 +75,7 @@ router.post('/reuniao/:id/status', (req, res) => {
   res.json({ ok:true })
 })
 
-router.post('/reuniao/:id/item-ativo', (req, res) => {
+router.post('/reuniao/:id/item-ativo', requireAuth, (req, res) => {
   const { itemId } = req.body
   getDb().prepare('UPDATE sessions SET active_item_id=? WHERE id_reuniao=?').run(String(itemId), String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('active_item_changed', { idReuniao:req.params.id, itemId })
@@ -71,7 +83,7 @@ router.post('/reuniao/:id/item-ativo', (req, res) => {
   res.json({ ok:true })
 })
 
-router.post('/reuniao/:id/presenca', (req, res) => {
+router.post('/reuniao/:id/presenca', requireAuth, (req, res) => {
   const { name, profile, manual } = req.body
   if (!name?.trim()) return res.status(400).json({ error:'nome obrigatório' })
   if (profile === 'assessor' || profile === 'secretario') return res.status(400).json({ error:'apenas deputados em presencas' })
@@ -97,28 +109,28 @@ router.get('/reuniao/:id/presencas', (req, res) => {  const rows = getDb().prepa
   res.json(rows.map(r=>({ id:r.id, name:r.name, profile:r.profile, confirmed: !!r.confirmed, origem: r.origem || 'login' })))
 })
 
-router.delete('/reuniao/:id/presencas', (req, res) => {
+router.delete('/reuniao/:id/presencas', requireAuth, (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   getDb().prepare('DELETE FROM presencas WHERE id_reuniao=?').run(String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('presence_confirmed', { idReuniao:req.params.id, cleared:true })
   res.json({ ok:true })
 })
 
-router.post('/reuniao/:id/presenca/:pid/confirmar', (req, res) => {
+router.post('/reuniao/:id/presenca/:pid/confirmar', requireAuth, (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   getDb().prepare('UPDATE presencas SET confirmed=1 WHERE id=? AND id_reuniao=?').run(Number(req.params.pid), String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('presence_confirmed', { idReuniao:req.params.id, pid:req.params.pid })
   res.json({ ok:true })
 })
 
-router.delete('/reuniao/:id/presenca/:pid', (req, res) => {
+router.delete('/reuniao/:id/presenca/:pid', requireAuth, (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   getDb().prepare('DELETE FROM presencas WHERE id=? AND id_reuniao=?').run(Number(req.params.pid), String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('presence_confirmed', { idReuniao:req.params.id, pid:req.params.pid, deleted:true })
   res.json({ ok:true })
 })
 
-router.post('/reuniao/:id/iniciar', async (req, res) => {
+router.post('/reuniao/:id/iniciar', requireAuth, async (req, res) => {
   const id = String(req.params.id)
   const db = getDb()
   const sess = db.prepare('SELECT * FROM sessions WHERE id_reuniao=?').get(id)
@@ -137,19 +149,19 @@ router.post('/reuniao/:id/iniciar', async (req, res) => {
   res.json({ ok:true, iniciada:true })
 })
 
-router.post('/reuniao/:id/encerrar', (req, res) => {
+router.post('/reuniao/:id/encerrar', requireAuth, (req, res) => {
   getDb().prepare("UPDATE sessions SET encerrada_em=datetime('now'), iniciada=1 WHERE id_reuniao=?").run(String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id })
   res.json({ ok:true, encerrada:true })
 })
 
-router.post('/reuniao/:id/reabrir', (req, res) => {
+router.post('/reuniao/:id/reabrir', requireAuth, (req, res) => {
   getDb().prepare('UPDATE sessions SET encerrada_em=NULL, iniciada=1 WHERE id_reuniao=?').run(String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id })
   res.json({ ok:true, encerrada:false })
 })
 
-router.post('/reuniao/:id/limpar', (req, res) => {
+router.post('/reuniao/:id/limpar', requireAuth, (req, res) => {
   const id = String(req.params.id)
   const db = getDb()
   db.prepare('DELETE FROM official_status WHERE id_reuniao=?').run(id)
@@ -171,7 +183,7 @@ router.get('/sessoes', (req, res) => {
   res.json(out)
 })
 
-router.post('/reuniao/:id/anotacao', (req, res) => {
+router.post('/reuniao/:id/anotacao', requireAuth, (req, res) => {
   const { itemId, text, authorName, cabinetKey } = req.body
   if (!text?.trim() || !cabinetKey) return res.status(400).json({ error:'texto e cabinetKey obrigatórios' })
   const depKey = normalize(cabinetKey)
@@ -185,11 +197,8 @@ router.post('/reuniao/:id/anotacao', (req, res) => {
 
 router.get('/reuniao/:id/anotacoes', (req, res) => {
   const key = req.query.cabinetKey ? normalize(req.query.cabinetKey) : null
-  // If no key provided, return [] (privacy by default). Front should pass cabinetKey.
-  // For simplicity, return all for tests, but filter when key present.
-  const rows = key
-    ? getDb().prepare('SELECT id,item_id,text,author_name,created_at FROM anotacoes_privadas WHERE id_reuniao=? AND cabinet_key=? ORDER BY created_at').all(String(req.params.id), key)
-    : getDb().prepare('SELECT id,item_id,text,author_name,created_at FROM anotacoes_privadas WHERE id_reuniao=? ORDER BY created_at').all(String(req.params.id))
+  if (!key) return res.json([])
+  const rows = getDb().prepare('SELECT id,item_id,text,author_name,created_at FROM anotacoes_privadas WHERE id_reuniao=? AND cabinet_key=? ORDER BY created_at').all(String(req.params.id), key)
   res.json(rows)
 })
 
@@ -207,7 +216,7 @@ router.get('/reuniao/:id/relatorio-assessoria.pdf', async (req, res) => {
   res.send(buf)
 })
 
-router.post('/reuniao/:id/vista', (req, res) => {
+router.post('/reuniao/:id/vista', requireAuth, (req, res) => {
   const { itemId, names } = req.body
   if (!itemId || !Array.isArray(names)) return res.status(400).json({ error:'itemId e names[] obrigatórios' })
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
@@ -255,7 +264,7 @@ router.post('/vinculos', (req, res) => {
   res.json({ ok:true, id: info.lastInsertRowid })
 })
 
-router.post('/reuniao/:id/vinculo', (req, res) => {
+router.post('/reuniao/:id/vinculo', requireAuth, (req, res) => {
   const { assessorName, deputadoName } = req.body
   if (!assessorName?.trim() || !deputadoName?.trim()) return res.status(400).json({ error:'assessorName e deputadoName obrigatórios' })
   const aKey = normalize(assessorName), dKey = normalize(deputadoName)
@@ -268,6 +277,13 @@ router.post('/reuniao/:id/vinculo', (req, res) => {
 
 router.get('/vinculos', (req, res) => {
   const dKey = req.query.deputadoKey ? normalize(req.query.deputadoKey) : null
+  if (!dKey) {
+    const auth = req.headers.authorization || ''
+    const m = auth.match(/^Bearer\s+(.+)$/i)
+    const { verifyToken } = require('../auth.js')
+    const p = m ? verifyToken(m[1]) : null
+    if (!p || p.role !== 'secretario') return res.status(401).json({ error:'unauthorized' })
+  }
   const rows = dKey
     ? getDb().prepare('SELECT id, id_reuniao, assessor_name, deputado_name, status FROM vinculos WHERE deputado_key=? ORDER BY created_at').all(dKey)
     : getDb().prepare('SELECT id, id_reuniao, assessor_name, deputado_name, status FROM vinculos ORDER BY created_at').all()
@@ -295,19 +311,19 @@ router.get('/reuniao/:id/vinculos', (req, res) => {
   res.json([...seen.values()])
 })
 
-router.post('/reuniao/:id/vinculo/:vid/aceitar', (req, res) => {
+router.post('/reuniao/:id/vinculo/:vid/aceitar', requireAuth, (req, res) => {
   getDb().prepare('UPDATE vinculos SET status=? WHERE id=? AND id_reuniao=?').run('aceito', Number(req.params.vid), String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('vinculo_changed', { idReuniao:req.params.id, id: req.params.vid })
   res.json({ ok:true })
 })
 
-router.post('/reuniao/:id/vinculo/:vid/recusar', (req, res) => {
+router.post('/reuniao/:id/vinculo/:vid/recusar', requireAuth, (req, res) => {
   getDb().prepare('UPDATE vinculos SET status=? WHERE id=? AND id_reuniao=?').run('recusado', Number(req.params.vid), String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('vinculo_changed', { idReuniao:req.params.id, id: req.params.vid })
   res.json({ ok:true })
 })
 
-router.delete('/reuniao/:id/vinculo/:vid', (req, res) => {
+router.delete('/reuniao/:id/vinculo/:vid', requireAuth, (req, res) => {
   const row = getDb().prepare('SELECT * FROM vinculos WHERE id=?').get(Number(req.params.vid))
   if (row) {
     getDb().prepare('DELETE FROM anotacoes_privadas WHERE author_name=? AND cabinet_key=?').run(row.assessor_name, row.deputado_key)
@@ -317,7 +333,7 @@ router.delete('/reuniao/:id/vinculo/:vid', (req, res) => {
   res.json({ ok:true })
 })
 
-router.delete('/vinculos/:vid', (req, res) => {
+router.delete('/vinculos/:vid', requireAuth, (req, res) => {
   const row = getDb().prepare('SELECT * FROM vinculos WHERE id=?').get(Number(req.params.vid))
   if (row) {
     getDb().prepare('DELETE FROM anotacoes_privadas WHERE author_name=? AND cabinet_key=?').run(row.assessor_name, row.deputado_key)
@@ -328,7 +344,7 @@ router.delete('/vinculos/:vid', (req, res) => {
   res.json({ ok:true })
 })
 
-router.post('/reuniao/:id/votacao-simbolica', async (req, res) => {
+router.post('/reuniao/:id/votacao-simbolica', requireAuth, async (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   const { itemId, decision } = req.body
   const id = String(req.params.id)
@@ -373,7 +389,7 @@ router.get('/reuniao/:id/votacoes-simbolicas', (req, res) => {
   res.json(out)
 })
 
-router.post('/reuniao/:id/voto-nominal', (req, res) => {
+router.post('/reuniao/:id/voto-nominal', requireAuth, (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   const { itemId, deputado, voto, outro } = req.body
   if (!itemId || !deputado || !voto) return res.status(400).json({ error:'itemId deputado voto obrigatórios' })
@@ -388,7 +404,7 @@ router.get('/reuniao/:id/votos-nominais/:itemId', (req, res) => {
   res.json(rows)
 })
 
-router.delete('/reuniao/:id/voto-nominal/:itemId/:deputado', (req, res) => {
+router.delete('/reuniao/:id/voto-nominal/:itemId/:deputado', requireAuth, (req, res) => {
   getDb().prepare('DELETE FROM votos_nominais WHERE id_reuniao=? AND item_id=? AND deputado_name=?').run(String(req.params.id), String(req.params.itemId), req.params.deputado)
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('voto_nominal_changed', { idReuniao:req.params.id, itemId:req.params.itemId })
   res.json({ ok:true })
@@ -401,7 +417,7 @@ router.get('/reuniao/:id/votos-nominais', (req, res) => {
   res.json(out)
 })
 
-router.post('/reuniao/:id/votacao-nominal/finalizar', (req, res) => {
+router.post('/reuniao/:id/votacao-nominal/finalizar', requireAuth, (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   const { itemId, decisaoManual } = req.body
   const votes = getDb().prepare('SELECT voto FROM votos_nominais WHERE id_reuniao=? AND item_id=?').all(String(req.params.id), String(itemId))
@@ -424,7 +440,7 @@ router.get('/reuniao/:id/anotacoes-secretario', (req, res) => {
   res.json(out)
 })
 
-router.post('/reuniao/:id/item-nota', (req, res) => {
+router.post('/reuniao/:id/item-nota', requireAuth, (req, res) => {
   if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
   const { itemId, texto } = req.body
   if (!itemId) return res.status(400).json({ error:'itemId obrigatório' })

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useLegisApi } from '../hooks/useLegisApi.js'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function formatDataBR(dt) {
@@ -37,33 +36,47 @@ function cardTone(estado) {
 }
 
 export default function ListaReunioes() {
-  const { data } = useLegisApi('/api/legis/reunioes?size=50')
-  const { profile, name, deputadoVinculado, cabinetKey } = useAuth()
+  const { authFetch, profile, name, deputadoVinculado, cabinetKey } = useAuth()
+  const [data, setData] = useState(null)
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [sessoes, setSessoes] = useState({})
   const [pendentes, setPendentes] = useState([])
+
+  const load = async () => {
+    setLoading(true); setError(null)
+    try {
+      const r = await authFetch('/api/legis/reunioes?size=50')
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      const j = await r.json()
+      setData(j)
+    } catch (e) {
+      setError(e.message || 'Erro ao carregar')
+    } finally {
+      setLoading(false)
+    }
+  }
+  useEffect(()=>{ load() }, [])
+
+  useEffect(()=>{
+    const loadS = () => authFetch('/api/sessoes').then(r=>r.json()).catch(()=>({})).then(setSessoes)
+    loadS()
+    const t = setInterval(loadS, 5000)
+    return ()=>clearInterval(t)
+  }, [])
 
   const list = data?.content || []
   const convocadas = list.filter(m => m.status?.txNome === 'Convocada' || !m.status)
 
   useEffect(()=>{
-    const load = () => fetch('/api/sessoes').then(r=>r.json()).catch(()=>({})).then(setSessoes)
-    load()
-    const t = setInterval(load, 5000)
-    return ()=>clearInterval(t)
-  }, [])
-
-  // Assessor: cria vínculo uma única vez (global) na página de reuniões
-  useEffect(()=>{
     if (profile !== 'assessor' || !name || !deputadoVinculado || convocadas.length===0) return
-    // usa primeira convocada como id_reuniao de referência; backend dedupe global garante unicidade
-    fetch(`/api/reuniao/${convocadas[0].idReuniao}/vinculo`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ assessorName: name, deputadoName: deputadoVinculado }) }).catch(()=>{})
+    authFetch(`/api/reuniao/${convocadas[0].idReuniao}/vinculo`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ assessorName: name, deputadoName: deputadoVinculado }) }).catch(()=>{})
   }, [profile, name, deputadoVinculado, convocadas.length])
 
-  // Deputado: busca pendentes globais (1 por assessor)
   useEffect(()=>{
     if (profile !== 'deputado') return
     let alive = true
-    fetch(`/api/vinculos?deputadoKey=${encodeURIComponent(cabinetKey||'')}`).catch(()=>null).then(async r=>{
+    authFetch(`/api/vinculos?deputadoKey=${encodeURIComponent(cabinetKey||'')}`).catch(()=>null).then(async r=>{
       if (!r || !alive) return
       const j = await r.json().catch(()=>[])
       if (alive) setPendentes(j.filter(v=>v.status==='pendente'))
@@ -72,11 +85,11 @@ export default function ListaReunioes() {
   }, [profile, cabinetKey])
 
   const accept = async (v) => {
-    await fetch(`/api/reuniao/${v.id_reuniao || convocadas[0]?.idReuniao}/vinculo/${v.id}/aceitar`, { method:'POST' })
+    await authFetch(`/api/reuniao/${v.id_reuniao || convocadas[0]?.idReuniao}/vinculo/${v.id}/aceitar`, { method:'POST' })
     setPendentes(p=>p.filter(x=>x.id!==v.id))
   }
   const refuse = async (v) => {
-    await fetch(`/api/reuniao/${v.id_reuniao || convocadas[0]?.idReuniao}/vinculo/${v.id}/recusar`, { method:'POST' })
+    await authFetch(`/api/reuniao/${v.id_reuniao || convocadas[0]?.idReuniao}/vinculo/${v.id}/recusar`, { method:'POST' })
     setPendentes(p=>p.filter(x=>x.id!==v.id))
   }
 
@@ -100,7 +113,16 @@ export default function ListaReunioes() {
       {profile==='assessor' && (
         <div className="text-xs text-slate-600 mb-2">Vínculo com {deputadoVinculado} será solicitado automaticamente.</div>
       )}
-      {convocadas.length===0 && <div className="text-slate-500">Carregando reuniões…</div>}
+      {loading && <div className="text-slate-500">Carregando reuniões…</div>}
+      {error && (
+        <div className="text-center py-8">
+          <div style={{fontSize:'40px'}}>⚠️</div>
+          <div className="font-bold mt-2">Não foi possível carregar as reuniões</div>
+          <div className="text-sm text-slate-500 mt-1">{error}</div>
+          <button onClick={load} className="bg-alesp text-white rounded-lg px-4 py-2 text-sm font-bold mt-3">Tentar novamente</button>
+        </div>
+      )}
+      {convocadas.length===0 && !loading && !error && <div className="text-slate-500">Nenhuma reunião convocada.</div>}
       <div className="grid md:grid-cols-2 gap-4">
         {convocadas.map(m => {
           const tipo = m.tipoConvocacao || m.tituloReuniao || ''

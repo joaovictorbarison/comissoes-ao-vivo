@@ -4,6 +4,7 @@ import { useSocket } from '../hooks/useSocket.js'
 import { useProcessoLinks } from '../hooks/useProcessoLinks.js'
 import { proposituraUrl, votoUrl } from '../lib/legisLinks.js'
 import PresentesTab from './PresentesTab.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const ACTIONS_ALL = [
   {k:'em_discussao', label:'Em discussão'},
@@ -43,6 +44,7 @@ function btnClass(actionKey, currentStatus) {
 
 export default function PautaSecretario() {
   const { id } = useParams()
+  const { authFetch } = useAuth()
   const [items, setItems] = useState([])
   const [meeting, setMeeting] = useState({})
   const [presencas, setPresencas] = useState([])
@@ -66,7 +68,7 @@ export default function PautaSecretario() {
   const linksMap = useProcessoLinks(items)
 
   const load = async () => {
-    const r = await fetch(`/api/reuniao/${id}`)
+    const r = await authFetch(`/api/reuniao/${id}`)
     const j = await r.json()
     setItems(j.items || j || [])
     setMeeting(j)
@@ -74,19 +76,19 @@ export default function PautaSecretario() {
     setIniciada(!!j.iniciada)
   }
   const loadPres = async () => {
-    const r = await fetch(`/api/reuniao/${id}/presencas`)
+    const r = await authFetch(`/api/reuniao/${id}/presencas`)
     setPresencas(await r.json().catch(()=>[]))
   }
   const loadVistas = async () => {
-    const r = await fetch(`/api/reuniao/${id}/vistas`)
+    const r = await authFetch(`/api/reuniao/${id}/vistas`)
     setVistas(await r.json().catch(()=>({})))
   }
   const loadNom = async () => {
-    const r = await fetch(`/api/reuniao/${id}/votos-nominais`).catch(()=>null)
+    const r = await authFetch(`/api/reuniao/${id}/votos-nominais`).catch(()=>null)
     if (r) setVotosNom(await r.json().catch(()=>({})))
   }
   const loadMembros = async () => {
-    const r = await fetch(`/api/reuniao/${id}`).catch(()=>null)
+    const r = await authFetch(`/api/reuniao/${id}`).catch(()=>null)
     if (!r) return
     const j = await r.json().catch(()=>({}))
     const cols = j.colegiadosRelacionados || []
@@ -94,7 +96,7 @@ export default function PautaSecretario() {
     if (!ids.length) return
     const seen = new Map()
     for (const cid of ids) {
-      const mr = await fetch(`/api/legis/colegiados/${cid}/membros`).catch(()=>null)
+      const mr = await authFetch(`/api/legis/colegiados/${cid}/membros`).catch(()=>null)
       if (!mr) continue
       const arr = await mr.json().catch(()=>[])
       arr.forEach(p=>{
@@ -109,7 +111,7 @@ export default function PautaSecretario() {
     }
     setMembros([...seen.values()])
     // party via portal para nao-membros
-    const pr = await fetch(`/api/legis/parlamentares-ativos`).catch(()=>null)
+    const pr = await authFetch(`/api/legis/parlamentares-ativos`).catch(()=>null)
     if (pr) {
       const arr = await pr.json().catch(()=>[])
       const map = {}
@@ -118,11 +120,11 @@ export default function PautaSecretario() {
     }
   }
   const loadNotas = async () => {
-    const r = await fetch(`/api/reuniao/${id}/anotacoes-secretario`).catch(()=>null)
+    const r = await authFetch(`/api/reuniao/${id}/anotacoes-secretario`).catch(()=>null)
     if (r) setNotas(await r.json().catch(()=>({})))
   }
   const loadEstado = async () => {
-    const r = await fetch(`/api/sessoes`).catch(()=>null)
+    const r = await authFetch(`/api/sessoes`).catch(()=>null)
     if (r) {
       const j = await r.json().catch(()=>({}))
       setIniciada(!!j[String(id)]?.iniciada)
@@ -142,31 +144,31 @@ export default function PautaSecretario() {
   }, [socket])
 
   const iniciar = async () => {
-    await fetch(`/api/reuniao/${id}/iniciar`, {method:'POST'})
+    await authFetch(`/api/reuniao/${id}/iniciar`, {method:'POST'})
     setIniciada(true); setEncerrada(false)
     load(); loadPres(); loadVistas(); loadEstado()
   }
   const encerrar = () => setConfirmEncerrar(true)
   const doEncerrar = async () => {
-    await fetch(`/api/reuniao/${id}/encerrar`, {method:'POST'})
+    await authFetch(`/api/reuniao/${id}/encerrar`, {method:'POST'})
     setConfirmEncerrar(false)
     setEncerrada(true)
     load(); loadPres(); loadVistas(); loadEstado()
   }
   const reabrir = async () => {
-    await fetch(`/api/reuniao/${id}/reabrir`, {method:'POST'})
+    await authFetch(`/api/reuniao/${id}/reabrir`, {method:'POST'})
     setEncerrada(false); setIniciada(true)
     load(); loadPres(); loadVistas(); loadEstado()
   }
   const limpar = async () => {
-    await fetch(`/api/reuniao/${id}/limpar`, {method:'POST'})
+    await authFetch(`/api/reuniao/${id}/limpar`, {method:'POST'})
     setConfirmClear(false)
     load(); loadVistas(); loadEstado(); loadNom(); loadNotas()
   }
 
   const applyStatus = async (item, status) => {
     if (encerrada) return
-    await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: item.id, status})})
+    await authFetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: item.id, status})})
     load()
   }
 
@@ -178,14 +180,14 @@ export default function PautaSecretario() {
       // abre painel simbólica/nominal
       setVotTipo(t=>({...t, [itemId]: t[itemId] || 'simbolica'}))
       if (current !== 'em_votacao') {
-        await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status})})
+        await authFetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status})})
       }
       load()
       return
     }
     if (status==='vista') {
       if (current !== 'vista') {
-        await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status})})
+        await authFetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status})})
       }
       setVistaOpen(itemId)
       setVistaSel(vistas[itemId] || [])
@@ -193,31 +195,31 @@ export default function PautaSecretario() {
       return
     }
     if (status === current) {
-      await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status:'pendente'})})
+      await authFetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, status:'pendente'})})
       load()
       return
     }
     // Aprovado na simbólica → snapshot
     if (status==='aprovado_relator' && (votTipo[itemId]||'simbolica')==='simbolica') {
-      await fetch(`/api/reuniao/${id}/votacao-simbolica`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, decision: 'aprovado'})})
+      await authFetch(`/api/reuniao/${id}/votacao-simbolica`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, decision: 'aprovado'})})
       load(); loadNom()
       return
     }
     // Rejeitado na simbólica → snapshot (direto também assume simbólica)
     if (status==='rejeitado_relator' && (votTipo[itemId]||'simbolica')==='simbolica') {
-      await fetch(`/api/reuniao/${id}/votacao-simbolica`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, decision: 'rejeitado'})})
+      await authFetch(`/api/reuniao/${id}/votacao-simbolica`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, decision: 'rejeitado'})})
       load(); loadNom()
       return
     }
     if (status==='aprovado_relator' && votTipo[itemId]==='nominal') {
       // finalizar nominal (auto ou manual se outro>=4)
-      const r = await fetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, decisaoManual: needsManual[itemId] ? 'aprovado' : null})})
+      const r = await authFetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, decisaoManual: needsManual[itemId] ? 'aprovado' : null})})
       const j = await r.json()
       if (j.needsManual) { setNeedsManual(m=>({...m, [itemId]: true})); alert('4 ou mais "Outro". Defina Aprovado ou Rejeitado.'); return }
       load(); return
     }
     if (status==='rejeitado_relator' && votTipo[itemId]==='nominal') {
-      const r = await fetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, decisaoManual: needsManual[itemId] ? 'rejeitado' : null})})
+      const r = await authFetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, decisaoManual: needsManual[itemId] ? 'rejeitado' : null})})
       const j = await r.json()
       if (j.needsManual) { setNeedsManual(m=>({...m, [itemId]: true})); alert('4 ou mais "Outro". Defina Aprovado ou Rejeitado.'); return }
       load(); return
@@ -233,7 +235,7 @@ export default function PautaSecretario() {
   const confirmPending = async () => {
     if (!pendingAction) return
     const { item, status } = pendingAction
-    await fetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: item.id, names:[]})})
+    await authFetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: item.id, names:[]})})
     await applyStatus(item, status)
     setPendingAction(null)
     loadVistas()
@@ -241,7 +243,7 @@ export default function PautaSecretario() {
 
   const saveVista = async (itemId) => {
     if (encerrada) return
-    await fetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, names: vistaSel})})
+    await authFetch(`/api/reuniao/${id}/vista`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, names: vistaSel})})
     setVistaOpen(null)
     load(); loadVistas()
   }
@@ -252,17 +254,17 @@ export default function PautaSecretario() {
 
   const registrarVoto = async (itemId, deputado, voto) => {
     if (!voto) {
-      await fetch(`/api/reuniao/${id}/voto-nominal/${itemId}/${encodeURIComponent(deputado)}`, {method:'DELETE'})
+      await authFetch(`/api/reuniao/${id}/voto-nominal/${itemId}/${encodeURIComponent(deputado)}`, {method:'DELETE'})
       loadNom()
       return
     }
     const outro = voto==='outro' ? (outroTxt[`${itemId}:${deputado}`]||'') : null
-    await fetch(`/api/reuniao/${id}/voto-nominal`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, deputado, voto, outro})})
+    await authFetch(`/api/reuniao/${id}/voto-nominal`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, deputado, voto, outro})})
     loadNom()
   }
 
   const saveNota = async (itemId) => {
-    await fetch(`/api/reuniao/${id}/item-nota`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, texto: notas[itemId]||''})})
+    await authFetch(`/api/reuniao/${id}/item-nota`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, texto: notas[itemId]||''})})
     setSavedNotas(s=>({...s, [itemId]: true}))
   }
 
@@ -360,16 +362,16 @@ export default function PautaSecretario() {
                           })
                         })()}
                         <button onClick={async ()=>{
-                          const r = await fetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id})})
+                          const r = await authFetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id})})
                           const j = await r.json()
                           if (j.needsManual) setNeedsManual(m=>({...m, [it.id]: true}))
-                          else if (j.ok) { const x = await fetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, status: j.status==='aprovado_nominal'?'aprovado_relator':'rejeitado_relator'})}).catch(()=>{}) }
+                          else if (j.ok) { const x = await authFetch(`/api/reuniao/${id}/status`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, status: j.status==='aprovado_nominal'?'aprovado_relator':'rejeitado_relator'})}).catch(()=>{}) }
                           load()
                         }} className="bg-alesp text-white rounded px-2 py-0.5 text-xs mt-1">Finalizar nominal</button>
                         {needsManual[it.id] && (
                           <div className="flex gap-1 mt-1">
-                            <button onClick={async ()=>{ await fetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, decisaoManual:'aprovado'})}); setNeedsManual(m=>({...m, [it.id]:false})); load() }} className="bg-green-600 text-white rounded px-2 py-0.5 text-xs">Aprovado (manual)</button>
-                            <button onClick={async ()=>{ await fetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, decisaoManual:'rejeitado'})}); setNeedsManual(m=>({...m, [it.id]:false})); load() }} className="bg-red-600 text-white rounded px-2 py-0.5 text-xs">Rejeitado (manual)</button>
+                            <button onClick={async ()=>{ await authFetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, decisaoManual:'aprovado'})}); setNeedsManual(m=>({...m, [it.id]:false})); load() }} className="bg-green-600 text-white rounded px-2 py-0.5 text-xs">Aprovado (manual)</button>
+                            <button onClick={async ()=>{ await authFetch(`/api/reuniao/${id}/votacao-nominal/finalizar`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId: it.id, decisaoManual:'rejeitado'})}); setNeedsManual(m=>({...m, [it.id]:false})); load() }} className="bg-red-600 text-white rounded px-2 py-0.5 text-xs">Rejeitado (manual)</button>
                           </div>
                         )}
                       </div>

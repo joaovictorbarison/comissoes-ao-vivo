@@ -5,7 +5,7 @@ import ListaReunioes from '../components/ListaReunioes.jsx'
 import { AuthProvider } from '../context/AuthContext.jsx'
 
 test('renders convocada meeting 1000007671', async () => {
-  vi.stubGlobal('fetch', async () => ({ json: async () => ({ content: [
+  vi.stubGlobal('fetch', async () => ({ ok: true, json: async () => ({ content: [
     { idReuniao:1000007671, nuReuniao:1, tituloReuniao:'Reunião de Pauta', txAssunto:'pauta anexa', dtReuniao:'2026-11-10T15:30', tipoConvocacao:'Ordinária', status:{txNome:'Convocada'}, local:{txNome:'Plenário José Bonifácio'}, colegiadosRelacionados:[{sigla:'CDD', nome:'Comissão CDD Teste'}], documentosReuniao:[{idDocumento:1, descricao:'Pauta de colegiado nº 2/2026', tipo:'Pauta de colegiado', linkArquivoPDF:'#'}] }
   ]})}))
   render(<MemoryRouter><AuthProvider><ListaReunioes /></AuthProvider></MemoryRouter>)

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useSocket } from '../hooks/useSocket.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 function normalizeName(n=''){ return n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim() }
 function formatName(n='') {
@@ -14,6 +15,7 @@ function nameCls(n='') {
 }
 
 export default function PresentesTab({ idReuniao }) {
+  const { authFetch } = useAuth()
   const [presencas, setPresencas] = useState([])
   const [membros, setMembros] = useState([])
   const [partyPortal, setPartyPortal] = useState({})
@@ -24,18 +26,18 @@ export default function PresentesTab({ idReuniao }) {
   const socket = useSocket(idReuniao)
 
   const load = async () => {
-    const r = await fetch(`/api/reuniao/${idReuniao}/presencas`)
+    const r = await authFetch(`/api/reuniao/${idReuniao}/presencas`)
     setPresencas(await r.json().catch(()=>[]))
   }
   const loadMembros = async () => {
-    const r = await fetch(`/api/reuniao/${idReuniao}`)
+    const r = await authFetch(`/api/reuniao/${idReuniao}`)
     const j = await r.json().catch(()=>({}))
     const cols = j.colegiadosRelacionados || []
     const ids = cols.map(c=>c.id).filter(Boolean)
     if (!ids.length) return
     const seen = new Map()
     for (const cid of ids) {
-      const mr = await fetch(`/api/legis/colegiados/${cid}/membros`).catch(()=>null)
+      const mr = await authFetch(`/api/legis/colegiados/${cid}/membros`).catch(()=>null)
       if (!mr) continue
       const arr = await mr.json().catch(()=>[])
       arr.forEach(p=>{
@@ -50,7 +52,7 @@ export default function PresentesTab({ idReuniao }) {
       })
     }
     setMembros([...seen.values()])
-    const pr = await fetch(`/api/legis/parlamentares-ativos`).catch(()=>null)
+    const pr = await authFetch(`/api/legis/parlamentares-ativos`).catch(()=>null)
     if (pr) {
       const arr = await pr.json().catch(()=>[])
       const map = {}
@@ -69,22 +71,22 @@ export default function PresentesTab({ idReuniao }) {
   }, [socket])
 
   const confirm = async (pid) => {
-    await fetch(`/api/reuniao/${idReuniao}/presenca/${pid}/confirmar`, {method:'POST'})
+    await authFetch(`/api/reuniao/${idReuniao}/presenca/${pid}/confirmar`, {method:'POST'})
     load()
   }
   const doDelete = async (pid) => {
-    await fetch(`/api/reuniao/${idReuniao}/presenca/${pid}`, {method:'DELETE'})
+    await authFetch(`/api/reuniao/${idReuniao}/presenca/${pid}`, {method:'DELETE'})
     setConfirmDelete(null)
     load()
   }
   const doClearAll = async () => {
-    await fetch(`/api/reuniao/${idReuniao}/presencas`, {method:'DELETE'})
+    await authFetch(`/api/reuniao/${idReuniao}/presencas`, {method:'DELETE'})
     setConfirmClearAll(false)
     load()
   }
   const marcarPresente = async (nome) => {
     if (!nome.trim()) return
-    await fetch(`/api/reuniao/${idReuniao}/presenca`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name: nome.trim(), profile:'deputado', manual:true })})
+    await authFetch(`/api/reuniao/${idReuniao}/presenca`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name: nome.trim(), profile:'deputado', manual:true })})
     load()
   }
 
@@ -126,7 +128,7 @@ export default function PresentesTab({ idReuniao }) {
         <span className="flex-1 min-w-0 break-words"><span>{display}</span><span className="text-slate-600">{partiLabel(p)}</span> {pres.origem==='login' && pres.confirmed ? '✓' : ''}</span>
         <span className="flex items-center gap-1 shrink-0">
           {pres.origem==='login' && !pres.confirmed && <button onClick={()=>confirm(pres.id)} className="bg-alesp text-white rounded px-2 h-5 text-xs font-normal">Confirmar</button>}
-          <button onClick={()=>setConfirmDelete(pres)} className="bg-red-600 text-white rounded w-5 h-5 text-xs font-normal" title="Excluir">×</button>
+          <button onClick={()=>setConfirmDelete(pres)} className="bg-red-600 text-white rounded w-5 h-5 text-xs font-normal" title="Excluir" aria-label={`Excluir ${p.parlamentar}`}>×</button>
         </span>
       </div>
     )
@@ -134,7 +136,7 @@ export default function PresentesTab({ idReuniao }) {
 
   const searchExtra = async (idx, q) => {
     if (q.trim().length<2) { setExtraSug({}); return }
-    const r = await fetch(`/api/legis/parlamentares-ativos?q=${encodeURIComponent(q)}`).catch(()=>null)
+    const r = await authFetch(`/api/legis/parlamentares-ativos?q=${encodeURIComponent(q)}`).catch(()=>null)
     if (!r) return
     const j = await r.json().catch(()=>[])
     setExtraSug(s=>({...s, [idx]: j.slice(0,8)}))

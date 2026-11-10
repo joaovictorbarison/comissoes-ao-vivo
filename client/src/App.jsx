@@ -29,7 +29,7 @@ function Header() {
   useEffect(()=>{
     if (!showVinculo || dep.trim().length<2) { setSug([]); return }
     const t = setTimeout(async ()=>{
-      const r = await fetch(`/api/legis/parlamentares-ativos?q=${encodeURIComponent(dep)}`).catch(()=>null)
+      const r = await authFetch(`/api/legis/parlamentares-ativos?q=${encodeURIComponent(dep)}`).catch(()=>null)
       if (r) setSug((await r.json().catch(()=>[])).slice(0,8))
     }, 300)
     return ()=>clearTimeout(t)
@@ -38,7 +38,7 @@ function Header() {
   const pedir = async () => {
     if (!dep.trim()) return
     // precisa de uma reunião de referência para a rota antiga; usa global
-    await fetch(`/api/vinculos`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ assessorName: name, deputadoName: dep }) }).catch(()=>{})
+    await authFetch(`/api/vinculos`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ assessorName: name, deputadoName: dep }) }).catch(()=>{})
     setShowVinculo(false)
     setDep('')
   }
@@ -84,12 +84,12 @@ function Header() {
 }
 
 function VinculoBar() {
-  const { profile, cabinetKey, deputadoVinculado, name } = useAuth()
+  const { profile, cabinetKey, deputadoVinculado, name, authFetch } = useAuth()
   const [pendentes, setPendentes] = useState([])
   const [aceitos, setAceitos] = useState([])
   const load = async () => {
     if (profile !== 'deputado') return
-    const r = await fetch(`/api/vinculos?deputadoKey=${encodeURIComponent(cabinetKey||'')}`)
+    const r = await authFetch(`/api/vinculos?deputadoKey=${encodeURIComponent(cabinetKey||'')}`)
     const j = await r.json().catch(()=>[])
     setPendentes(j.filter(v=>v.status==='pendente'))
     setAceitos(j.filter(v=>v.status==='aceito'))
@@ -97,11 +97,11 @@ function VinculoBar() {
   useEffect(()=>{ load(); const t = setInterval(load, 5000); return ()=>clearInterval(t) }, [profile, cabinetKey])
 
   const accept = async (v) => {
-    await fetch(`/api/reuniao/${v.id_reuniao || 1}/vinculo/${v.id}/aceitar`, { method:'POST' })
+    await authFetch(`/api/reuniao/${v.id_reuniao || 1}/vinculo/${v.id}/aceitar`, { method:'POST' })
     load()
   }
   const refuse = async (v) => {
-    await fetch(`/api/reuniao/${v.id_reuniao || 1}/vinculo/${v.id}/recusar`, { method:'POST' })
+    await authFetch(`/api/reuniao/${v.id_reuniao || 1}/vinculo/${v.id}/recusar`, { method:'POST' })
     load()
   }
 

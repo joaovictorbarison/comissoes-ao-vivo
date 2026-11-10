@@ -39,17 +39,25 @@ export default function Identificacao() {
     setError('')
     if (!name.trim()) { setError('Informe o nome.'); return }
     if (profile === 'assessor' && !deputado.trim()) { setError('Informe o deputado que você assessora.'); return }
+    let token = null
     if (profile === 'secretario') {
       let res
       try {
-        res = await fetch('/api/auth/secretario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: password.trim()}) })
+        res = await fetch('/api/auth/secretario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: password.trim(), name: name.trim()}) })
       } catch {
         setError('Erro de conexão com o servidor. Verifique sua internet e tente novamente.'); return
       }
       if (res.status === 401) { setError('Senha incorreta para secretário.'); return }
       if (!res.ok) { setError('Erro no servidor. Tente novamente em instantes.'); return }
+      const j = await res.json().catch(()=>({}))
+      token = j.token
+    } else {
+      const res = await fetch('/api/auth/identificar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({profile, name: name.trim(), deputadoVinculado: profile==='assessor' ? deputado.trim() : null}) })
+      if (!res.ok) { setError('Erro no servidor. Tente novamente em instantes.'); return }
+      const j = await res.json().catch(()=>({}))
+      token = j.token
     }
-    setAuth(profile, name.trim(), profile==='assessor' ? deputado.trim() : null)
+    setAuth(profile, name.trim(), profile==='assessor' ? deputado.trim() : null, token)
     navigate('/reunioes')
   }
 

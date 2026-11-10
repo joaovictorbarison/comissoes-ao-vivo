@@ -23,8 +23,8 @@ const STATUS_LABEL = {
 }
 const STATUS_COLOR = {
   pendente: 'bg-slate-200 text-slate-700',
-  em_discussao: 'bg-yellow-300 text-yellow-900',
-  em_votacao: 'bg-blue-300 text-blue-900',
+  em_discussao: 'bg-blue-300 text-blue-900',
+  em_votacao: 'bg-yellow-300 text-yellow-900',
   aprovado_relator: 'bg-green-300 text-green-900',
   aprovado_simbolico: 'bg-green-300 text-green-900',
   aprovado_nominal: 'bg-green-300 text-green-900',
@@ -50,38 +50,39 @@ function cardTone(status) {
 
 export default function PautaAssessor() {
   const { id } = useParams()
-  const { cabinetKey, name, profile, deputadoVinculado } = useAuth()
+  const { cabinetKey, name, profile, deputadoVinculado, authFetch } = useAuth()
   const [items, setItems] = useState([])
   const [meeting, setMeeting] = useState({})
   const [notes, setNotes] = useState([])
   const [drafts, setDrafts] = useState({})
   const [vinculos, setVinculos] = useState([])
   const [vistas, setVistas] = useState({})
+  const [savedNotes, setSavedNotes] = useState({})
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
 
   const load = async () => {
-    const res = await fetch(`/api/reuniao/${id}`)
+    const res = await authFetch(`/api/reuniao/${id}`)
     const j = await res.json()
     setItems(j.items || j || [])
     setMeeting(j)
-    const n = await fetch(`/api/reuniao/${id}/anotacoes?cabinetKey=${encodeURIComponent(cabinetKey||'')}`).then(r=>r.json()).catch(()=>[])
+    const n = await authFetch(`/api/reuniao/${id}/anotacoes?cabinetKey=${encodeURIComponent(cabinetKey||'')}`).then(r=>r.json()).catch(()=>[])
     setNotes(Array.isArray(n) ? n : [])
-    const v = await fetch(`/api/reuniao/${id}/vistas`).then(r=>r.json()).catch(()=>({}))
+    const v = await authFetch(`/api/reuniao/${id}/vistas`).then(r=>r.json()).catch(()=>({}))
     setVistas(v)
   }
   const loadVinculos = async () => {
-    const r = await fetch(`/api/vinculos?deputadoKey=${encodeURIComponent(cabinetKey||'')}`)
+    const r = await authFetch(`/api/vinculos?deputadoKey=${encodeURIComponent(cabinetKey||'')}`)
     setVinculos(await r.json().catch(()=>[]))
   }
   useEffect(()=>{ if(id) { load(); loadVinculos() } }, [id, cabinetKey])
   useEffect(()=>{
     if(!id || !name || profile !== 'deputado') return
-    fetch(`/api/reuniao/${id}/presenca`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, profile }) }).catch(()=>{})
+    authFetch(`/api/reuniao/${id}/presenca`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, profile }) }).catch(()=>{})
   }, [id, name, profile])
   useEffect(()=>{
     if(!id || profile !== 'assessor' || !name || !deputadoVinculado) return
-    fetch(`/api/reuniao/${id}/vinculo`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ assessorName: name, deputadoName: deputadoVinculado }) }).catch(()=>{})
+    authFetch(`/api/reuniao/${id}/vinculo`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ assessorName: name, deputadoName: deputadoVinculado }) }).catch(()=>{})
   }, [id, profile, name, deputadoVinculado])
   useEffect(()=>{
     if(!socket) return
@@ -95,20 +96,21 @@ export default function PautaAssessor() {
   }, [socket])
 
   const acceptVinculo = async (vid) => {
-    await fetch(`/api/reuniao/${id}/vinculo/${vid}/aceitar`, { method:'POST' })
+    await authFetch(`/api/reuniao/${id}/vinculo/${vid}/aceitar`, { method:'POST' })
     loadVinculos(); load()
   }
   const refuseVinculo = async (vid) => {
-    await fetch(`/api/reuniao/${id}/vinculo/${vid}/recusar`, { method:'POST' })
+    await authFetch(`/api/reuniao/${id}/vinculo/${vid}/recusar`, { method:'POST' })
     loadVinculos()
   }
 
   const saveNote = async (itemId) => {
     const text = drafts[itemId]?.trim()
     if(!text) return
-    const r = await fetch(`/api/reuniao/${id}/anotacao`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, text, authorName:name, cabinetKey})})
+    const r = await authFetch(`/api/reuniao/${id}/anotacao`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({itemId, text, authorName:name, cabinetKey})})
     if (!r.ok) { alert('Vínculo pendente ou recusado. Aguarde o aceite do deputado.'); return }
     setDrafts(d=>({...d, [itemId]:''}))
+    setSavedNotes(sn=>({...sn, [itemId]: true}))
     load()
   }
 
@@ -158,8 +160,9 @@ export default function PautaAssessor() {
                 <div className="text-xs font-bold">Orientação da assessoria</div>
                 {notesFor(it.id).map(n=>(<div key={n.id} className="text-sm mt-1"><b>{n.author_name}:</b> {n.text}</div>))}
                 <div className="flex gap-2 mt-2">
-                  <input value={drafts[it.id]||''} onChange={e=>setDrafts(d=>({...d,[it.id]:e.target.value}))} placeholder="Nova orientação/observação…" className="flex-1 border rounded-lg p-2 text-sm" />
-                  <button onClick={()=>saveNote(it.id)} className="bg-alesp text-white rounded-lg px-3 py-2 text-sm font-bold">Salvar</button>
+                  <input value={drafts[it.id]||''} onChange={e=>{ setDrafts(d=>({...d,[it.id]:e.target.value})); setSavedNotes(sn=>({...sn,[it.id]:false})) }} placeholder="Nova orientação/observação…" className="flex-1 border rounded-lg p-2 text-sm" />
+                  <button onClick={()=>saveNote(it.id)} className="bg-alesp text-white rounded-lg px-3 py-2 text-sm font-bold">{savedNotes[it.id]?'Editar':'Salvar'}</button>
+                  {savedNotes[it.id] && <span className="text-green-600 text-sm self-center">✔️</span>}
                 </div>
               </div>
             </div>
