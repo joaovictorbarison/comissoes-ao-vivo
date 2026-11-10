@@ -489,6 +489,12 @@ router.post('/reuniao/:id/bloco', (req, res) => {
   ids.forEach(iid => {
     db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), iid, st)
   })
+  const isTerminal = ['aprovado_relator','rejeitado_relator','aprovado_simbolico','aprovado_nominal','rejeitado_nominal','rejeitado_simbolico','vista','retirado'].includes(st)
+  if (isTerminal && ids.length) {
+    const numero = (db.prepare('SELECT COUNT(*) c FROM blocos WHERE id_reuniao=?').get(String(req.params.id)).c || 0) + 1
+    const resultado = st.startsWith('aprovado') ? 'Aprovados' : (st.startsWith('rejeitado') ? 'Rejeitados' : (st==='vista'?'Vista':'Retirado'))
+    db.prepare('INSERT INTO blocos (id_reuniao,numero,item_ids,resultado) VALUES (?,?,?,?)').run(String(req.params.id), numero, JSON.stringify(ids), resultado)
+  }
   const others = db.prepare("SELECT item_id FROM official_status WHERE id_reuniao=? AND status IN ('em_discussao','em_votacao') AND item_id NOT IN (" + (ids.length?ids.map(()=>'?').join(','):'NULL') + ")").all(String(req.params.id), ...ids)
   others.forEach(o => {
     db.prepare('UPDATE official_status SET status=? WHERE id_reuniao=? AND item_id=?').run('pendente', String(req.params.id), o.item_id)
@@ -505,6 +511,11 @@ router.delete('/reuniao/:id/bloco', (req, res) => {
   getDb().prepare('UPDATE votacao_bloco SET ativo=0 WHERE id_reuniao=?').run(String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('bloco_changed', { idReuniao:req.params.id, itemIds: [], status: 'pendente', ativo: false })
   res.json({ ok:true })
+})
+
+router.get('/reuniao/:id/blocos', (req, res) => {
+  const rows = getDb().prepare('SELECT id,numero,item_ids,resultado,created_at FROM blocos WHERE id_reuniao=? ORDER BY numero').all(String(req.params.id))
+  res.json(rows.map(r=>({ id:r.id, numero:r.numero, itemIds: JSON.parse(r.item_ids), resultado:r.resultado, createdAt:r.created_at })))
 })
 
 module.exports = router

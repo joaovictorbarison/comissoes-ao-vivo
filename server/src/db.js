@@ -100,6 +100,15 @@ function initDb(pathArg) {
       ativo INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS blocos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_reuniao TEXT NOT NULL,
+      numero INTEGER NOT NULL,
+      item_ids TEXT NOT NULL DEFAULT '[]',
+      resultado TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_blocos_reuniao ON blocos(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_items_reuniao ON agenda_items(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_pres_reuniao ON presencas(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_notes_reuniao ON anotacoes_privadas(id_reuniao);

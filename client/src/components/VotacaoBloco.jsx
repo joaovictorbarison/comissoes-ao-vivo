@@ -10,6 +10,7 @@ export default function VotacaoBloco() {
   const [selected, setSelected] = useState(new Set())
   const [status, setStatus] = useState('em_discussao')
   const [meeting, setMeeting] = useState({})
+  const [blocos, setBlocos] = useState([])
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
 
@@ -21,6 +22,8 @@ export default function VotacaoBloco() {
     const b = await fetch(`/api/reuniao/${id}/bloco`).then(r=>r.json()).catch(()=>({}))
     if (b.itemIds) setSelected(new Set(b.itemIds))
     if (b.status) setStatus(b.status)
+    const bl = await fetch(`/api/reuniao/${id}/blocos`).then(r=>r.json()).catch(()=>[])
+    setBlocos(Array.isArray(bl) ? bl : [])
   }
   useEffect(()=>{ if(id) load() }, [id])
   useEffect(()=>{
@@ -70,6 +73,16 @@ export default function VotacaoBloco() {
         <button onClick={desativar} className="rounded px-3 py-2 text-sm bg-slate-700 text-white font-bold" title="Desativa o bloco na TV e volta para a pauta normal">Desativar na TV</button>
       </div>
       <div className="text-sm font-bold text-slate-700 mt-2">Status do bloco: <span className="text-alesp">{status==='em_discussao'?'Em discussão':status==='em_votacao'?'Em votação':status==='aprovado_relator'?'Aprovado':status==='rejeitado_relator'?'Rejeitado':status}</span></div>
+      {blocos.length>0 && (
+        <div className="mt-3 border-t pt-2">
+          <div className="text-xs font-bold text-slate-500 uppercase mb-1">Blocos registrados</div>
+          {blocos.map(b=>(
+            <div key={b.id} className="text-sm text-slate-700 py-0.5">
+              Bloco {b.numero}: Itens {b.itemIds.map(i=>items.find(x=>String(x.id)===String(i))?.nuOrdem||i).join(', ')} - {b.resultado}
+            </div>
+          ))}
+        </div>
+      )}
       <div className="w-fit mt-2">
         <div className="grid grid-cols-10 gap-px">
         {items.map(it=>{
