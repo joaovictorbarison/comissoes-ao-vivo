@@ -69,7 +69,7 @@ export default function VotacaoBloco() {
         <button onClick={()=>aplicar('rejeitado_relator')} className="rounded px-3 py-2 text-sm bg-red-300 text-red-900 font-bold">Rejeitado</button>
         <button onClick={desativar} className="rounded px-3 py-2 text-sm bg-slate-700 text-white font-bold" title="Desativa o bloco na TV e volta para a pauta normal">Desativar na TV</button>
       </div>
-      <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 gap-1 mt-3">
+      <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 gap-0.5 mt-2">
         {items.map(it=>{
           const sel = selected.has(String(it.id))
           const st = it.status_oficial
@@ -81,7 +81,7 @@ export default function VotacaoBloco() {
             : st==='em_votacao' ? 'bg-yellow-300 border-yellow-500 text-yellow-900'
             : 'bg-white border-slate-300 text-slate-700'
           return (
-            <button key={it.id} onClick={()=>toggle(it.id)} className={`w-9 h-9 rounded border-2 text-xs font-bold flex items-center justify-center ${sel?'ring-2 ring-yellow-400 bg-yellow-200 border-yellow-500 text-yellow-900':color} hover:opacity-80`}>
+            <button key={it.id} onClick={()=>toggle(it.id)} className={`w-7 h-7 rounded border text-[10px] font-bold flex items-center justify-center ${sel?'ring-1 ring-yellow-400 bg-yellow-200 border-yellow-500 text-yellow-900':color} hover:opacity-80`}>
               {it.nuOrdem}
             </button>
           )
