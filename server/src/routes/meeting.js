@@ -177,8 +177,10 @@ router.post('/reuniao/:id/limpar', requireAuth, (req, res) => {
   db.prepare('DELETE FROM votacao_simbolica WHERE id_reuniao=?').run(id)
   db.prepare('DELETE FROM votos_nominais WHERE id_reuniao=?').run(id)
   db.prepare('DELETE FROM anotacoes_secretario WHERE id_reuniao=?').run(id)
+  db.prepare('DELETE FROM votacao_bloco WHERE id_reuniao=?').run(id)
   db.prepare('UPDATE sessions SET active_item_id=NULL, encerrada_em=NULL, iniciada=0 WHERE id_reuniao=?').run(id)
   req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id })
+  req.app.get('io')?.to('reuniao:'+id).emit('bloco_changed', { idReuniao:id, itemIds: [], status: 'pendente', ativo: false })
   res.json({ ok:true })
 })
 
