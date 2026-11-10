@@ -469,4 +469,40 @@ router.post('/reuniao/:id/item-nota', requireAuth, (req, res) => {
   res.json({ ok:true })
 })
 
+router.get('/reuniao/:id/bloco', (req, res) => {
+  const row = getDb().prepare('SELECT item_ids,status,ativo FROM votacao_bloco WHERE id_reuniao=?').get(String(req.params.id))
+  if (!row) return res.json({ itemIds: [], status: 'pendente', ativo: false })
+  let ids = []
+  try { ids = JSON.parse(row.item_ids) } catch {}
+  res.json({ itemIds: ids, status: row.status, ativo: !!row.ativo })
+})
+
+router.post('/reuniao/:id/bloco', (req, res) => {
+  if (isEncerrada(req.params.id)) return res.status(400).json({ error:'reunião encerrada' })
+  const { itemIds, status } = req.body || {}
+  const ids = Array.isArray(itemIds) ? itemIds.map(String) : []
+  const st = status || 'em_discussao'
+  const db = getDb()
+  db.prepare('INSERT INTO votacao_bloco (id_reuniao,item_ids,status,ativo) VALUES (?,?,?,1) ON CONFLICT(id_reuniao) DO UPDATE SET item_ids=excluded.item_ids, status=excluded.status, ativo=1, updated_at=datetime(\'now\')').run(String(req.params.id), JSON.stringify(ids), st)
+  ids.forEach(iid => {
+    db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), iid, st)
+  })
+  const others = db.prepare("SELECT item_id FROM official_status WHERE id_reuniao=? AND status IN ('em_discussao','em_votacao') AND item_id NOT IN (" + (ids.length?ids.map(()=>'?').join(','):'NULL') + ")").all(String(req.params.id), ...ids)
+  others.forEach(o => {
+    db.prepare('UPDATE official_status SET status=? WHERE id_reuniao=? AND item_id=?').run('pendente', String(req.params.id), o.item_id)
+    req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId: o.item_id, status:'pendente' })
+  })
+  ids.forEach(iid => {
+    req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId: iid, status: st })
+  })
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('bloco_changed', { idReuniao:req.params.id, itemIds: ids, status: st })
+  res.json({ ok:true })
+})
+
+router.delete('/reuniao/:id/bloco', (req, res) => {
+  getDb().prepare('UPDATE votacao_bloco SET ativo=0 WHERE id_reuniao=?').run(String(req.params.id))
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('bloco_changed', { idReuniao:req.params.id, itemIds: [], status: 'pendente', ativo: false })
+  res.json({ ok:true })
+})
+
 module.exports = router

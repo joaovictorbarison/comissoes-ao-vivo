@@ -5,6 +5,7 @@ import Identificacao from './components/Identificacao.jsx'
 import ListaReunioes from './components/ListaReunioes.jsx'
 import PautaAssessor from './components/PautaAssessor.jsx'
 import PautaSecretario from './components/PautaSecretario.jsx'
+import VotacaoBloco from './components/VotacaoBloco.jsx'
 import TvDisplay from './components/TvDisplay.jsx'
 import { useAuth } from './context/AuthContext.jsx'
 
@@ -155,6 +156,7 @@ export default function App() {
               <Route path="/identificacao" element={<Identificacao />} />
               <Route path="/reunioes" element={<ListaReunioes />} />
               <Route path="/reuniao/:id" element={<PautaRouter />} />
+              <Route path="/reuniao/:id/bloco" element={<VotacaoBloco />} />
               <Route path="/tv/:id" element={<TvDisplay />} />
             </Routes>
           </main>

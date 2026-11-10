@@ -93,6 +93,13 @@ function initDb(pathArg) {
       status TEXT NOT NULL DEFAULT 'pendente',
       created_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS votacao_bloco (
+      id_reuniao TEXT PRIMARY KEY,
+      item_ids TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'pendente',
+      ativo INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
     CREATE INDEX IF NOT EXISTS idx_items_reuniao ON agenda_items(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_pres_reuniao ON presencas(id_reuniao);
     CREATE INDEX IF NOT EXISTS idx_notes_reuniao ON anotacoes_privadas(id_reuniao);

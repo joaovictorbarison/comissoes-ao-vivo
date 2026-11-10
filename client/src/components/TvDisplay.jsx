@@ -32,6 +32,7 @@ export default function TvDisplay() {
   const [vistas, setVistas] = useState({})
   const [currentId, setCurrentId] = useState(null)
   const [resultItemId, setResultItemId] = useState(null)
+  const [bloco, setBloco] = useState(null)
   const timerRef = useRef(null)
   const socket = useSocket(id)
 
@@ -41,6 +42,8 @@ export default function TvDisplay() {
     setData(j)
     const v = await fetch(`/api/reuniao/${id}/vistas`).then(r=>r.json()).catch(()=>({}))
     setVistas(v)
+    const b = await fetch(`/api/reuniao/${id}/bloco`).then(r=>r.json()).catch(()=>null)
+    setBloco(b && b.ativo ? b : null)
     return j
   }
 
@@ -72,9 +75,11 @@ export default function TvDisplay() {
         if (timerRef.current) clearTimeout(timerRef.current)
       }
     }
+    const onBloco = async () => { await load() }
     socket.on('official_status_changed', onStatus)
     socket.on('active_item_changed', onStatus)
-    return ()=>{ socket.off('official_status_changed', onStatus); socket.off('active_item_changed', onStatus) }
+    socket.on('bloco_changed', onBloco)
+    return ()=>{ socket.off('official_status_changed', onStatus); socket.off('active_item_changed', onStatus); socket.off('bloco_changed', onBloco) }
   }, [socket])
   useEffect(()=>()=>{ if(timerRef.current) clearTimeout(timerRef.current) }, [])
 
@@ -96,6 +101,26 @@ export default function TvDisplay() {
           <div className="text-2xl font-bold mt-6 opacity-90">{numTipo}</div>
           <div className="text-2xl font-bold mt-2 opacity-90">{totalItens} itens em pauta</div>
           {!data.iniciada && <div className="inline-block bg-slate-700 text-white font-extrabold px-6 py-2 rounded-full mt-6 text-lg tracking-wide">AGUARDANDO INÍCIO</div>}
+        </div>
+      </div>
+    )
+  }
+
+  // Bloco ativo
+  if (bloco && bloco.ativo && Array.isArray(bloco.itemIds) && bloco.itemIds.length) {
+    const blocoItems = items.filter(i => bloco.itemIds.includes(String(i.id)))
+    const nums = blocoItems.map(i=>i.nuOrdem).sort((a,b)=>a-b).join(', ')
+    const st = bloco.status || 'em_discussao'
+    const title = st==='em_votacao' ? 'VOTAÇÃO EM BLOCO' : (st==='aprovado_relator'?'APROVADO':st==='rejeitado_relator'?'REJEITADO':st==='vista'?'VISTA':'VOTAÇÃO EM BLOCO')
+    const pillClass = statusColor(st==='em_votacao'?'em_votacao':st)
+    return (
+      <div className="bg-black text-white min-h-screen flex items-center justify-center p-6">
+        <div className="text-center w-full max-w-4xl border-2 border-blue-800 rounded-2xl p-10 bg-gradient-to-b from-alesp to-black">
+          <div className="text-sm uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
+          {comissaoNome && <div className="text-lg font-bold mt-1 opacity-90">{comissaoNome}</div>}
+          <div className={`inline-block font-extrabold px-4 py-1 rounded-full mt-3 ${pillClass}`}>{title}</div>
+          <div className="text-2xl font-bold mt-4">Votação em bloco</div>
+          <div className="text-xl font-bold mt-2">Itens: {nums}</div>
         </div>
       </div>
     )

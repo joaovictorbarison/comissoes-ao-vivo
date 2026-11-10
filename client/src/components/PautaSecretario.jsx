@@ -285,6 +285,7 @@ export default function PautaSecretario() {
           <a href={`/api/reuniao/${id}/relatorio.pdf`} className="text-sm bg-yellow-400 text-slate-900 rounded-lg px-3 py-2 font-bold">Baixar relatório</a>
           <button onClick={()=>setConfirmClear(true)} className="text-sm bg-slate-700 text-white rounded-lg px-3 py-2 font-bold">Limpar dados</button>
           <Link to={`/tv/${id}`} target="_blank" className="text-sm bg-black text-white rounded-lg px-3 py-2 font-bold">📺 Ver TV (testar)</Link>
+          <Link to={`/reuniao/${id}/bloco`} className="text-sm bg-purple-600 text-white rounded-lg px-3 py-2 font-bold">Votação em Bloco</Link>
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 mt-4">
