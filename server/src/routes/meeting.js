@@ -70,6 +70,14 @@ router.post('/reuniao/:id/status', requireAuth, (req, res) => {
   // garante linha de sessão antes de marcar iniciada
   db.prepare('INSERT OR IGNORE INTO sessions (id_reuniao) VALUES (?)').run(String(req.params.id))
   db.prepare('UPDATE sessions SET iniciada=1 WHERE id_reuniao=?').run(String(req.params.id))
+  // se registrar status em outro item, desfaz "em discussão" dos demais (volta a pendente)
+  if (status !== 'pendente') {
+    const others = db.prepare('SELECT item_id FROM official_status WHERE id_reuniao=? AND status=? AND item_id<>?').all(String(req.params.id), 'em_discussao', String(itemId))
+    others.forEach(o => {
+      db.prepare('UPDATE official_status SET status=? WHERE id_reuniao=? AND item_id=?').run('pendente', String(req.params.id), o.item_id)
+      req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId: o.item_id, status:'pendente' })
+    })
+  }
   db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), String(itemId), status)
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status })
   res.json({ ok:true })

@@ -23,6 +23,7 @@ export default function PresentesTab({ idReuniao }) {
   const [confirmClearAll, setConfirmClearAll] = useState(false)
   const [extraInputs, setExtraInputs] = useState([''])
   const [extraSug, setExtraSug] = useState({})
+  const [open, setOpen] = useState(true)
   const socket = useSocket(idReuniao)
 
   const load = async () => {
@@ -143,11 +144,13 @@ export default function PresentesTab({ idReuniao }) {
   }
 
   return (
-    <div className="bg-white border rounded-xl p-3">
+    <div className="bg-white border rounded-xl p-3 sticky top-2 z-10 shadow-sm">
       <div className="flex items-center justify-between mb-1">
-        <h2 className="font-extrabold text-alesp text-sm">Presentes</h2>
+        <button onClick={()=>setOpen(o=>!o)} className="font-extrabold text-alesp text-sm flex items-center gap-1">Presentes <span className="text-xs">{open?'▼':'▶'}</span></button>
         <button onClick={()=>setConfirmClearAll(true)} className="bg-slate-700 text-white rounded px-2 py-0.5 text-xs font-bold">Limpar presenças</button>
       </div>
+      {open && (
+      <>
       {membros.length>0 && (
         <>
           <div className="text-[11px] font-bold text-slate-500 uppercase mb-0.5">Efetivos</div>
@@ -195,6 +198,9 @@ export default function PresentesTab({ idReuniao }) {
           </div>
         ))}
       </div>
+      )}
+      </>
+      )}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-5 max-w-sm w-full mx-4">
