@@ -195,7 +195,8 @@ async function generateAssessoriaPdf(idReuniao, cabinetKey) {
         doc.text(`Substitutos: ${deps.substitutos.join(', ') || '—'}`, { indent: 12, width: 515 })
         doc.text(`Outros: ${deps.outros.join(', ') || '—'}`, { indent: 12, width: 515 })
       } else {
-        doc.text(`Status: ${statusTexto(i, encerrada, vistas)}`, { width: 515 })
+        const st = encerrada ? statusTexto(i, encerrada, vistas) : 'Orientações'
+        doc.text(`Status: ${st}`, { width: 515 })
       }
       const nom = nominais[i.id] || []
       if (nom.length) nom.forEach(v=>doc.text(`• ${displayName(v.deputado_name, partyMaps)}: ${v.voto}`, { indent: 12, width: 503 }))

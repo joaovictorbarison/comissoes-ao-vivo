@@ -25,8 +25,8 @@ function cardClass(status) {  if (status==='aprovado_relator' || status==='aprov
   if (status==='rejeitado_relator' || status==='rejeitado_nominal' || status==='rejeitado_simbolico') return 'border-red-300 bg-red-100'
   if (status==='vista') return 'border-orange-300 bg-orange-100'
   if (status==='retirado') return 'border-slate-400 bg-slate-200'
-  if (status==='em_discussao') return 'border-yellow-300 bg-yellow-100'
-  if (status==='em_votacao') return 'border-blue-300 bg-blue-100'
+  if (status==='em_discussao') return 'border-blue-300 bg-blue-100'
+  if (status==='em_votacao') return 'border-yellow-300 bg-yellow-100'
   if (status==='nao_deliberado') return 'border-slate-300 bg-slate-100'
   return 'border-slate-200 bg-white'
 }
@@ -36,8 +36,8 @@ function btnClass(actionKey, currentStatus) {
   if (actionKey==='rejeitado_relator' || currentStatus==='rejeitado_nominal' || currentStatus==='rejeitado_simbolico') return 'bg-red-300 text-red-900 font-bold'
   if (actionKey==='vista') return 'bg-orange-300 text-orange-900 font-bold'
   if (actionKey==='retirado') return 'bg-slate-400 text-slate-900 font-bold'
-  if (actionKey==='em_discussao') return 'bg-yellow-300 text-yellow-900 font-bold'
-  if (actionKey==='em_votacao') return 'bg-blue-300 text-blue-900 font-bold'
+  if (actionKey==='em_discussao') return 'bg-blue-300 text-blue-900 font-bold'
+  if (actionKey==='em_votacao') return 'bg-yellow-300 text-yellow-900 font-bold animate-pulse'
   return 'bg-slate-100 font-bold'
 }
 
@@ -50,6 +50,7 @@ export default function PautaSecretario() {
   const [vistaSel, setVistaSel] = useState([])
   const [vistas, setVistas] = useState({})
   const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmEncerrar, setConfirmEncerrar] = useState(false)
   const [pendingAction, setPendingAction] = useState(null)
   const [iniciada, setIniciada] = useState(false)
   const [encerrada, setEncerrada] = useState(false)
@@ -145,8 +146,10 @@ export default function PautaSecretario() {
     setIniciada(true); setEncerrada(false)
     load(); loadPres(); loadVistas(); loadEstado()
   }
-  const encerrar = async () => {
+  const encerrar = () => setConfirmEncerrar(true)
+  const doEncerrar = async () => {
     await fetch(`/api/reuniao/${id}/encerrar`, {method:'POST'})
+    setConfirmEncerrar(false)
     setEncerrada(true)
     load(); loadPres(); loadVistas(); loadEstado()
   }
@@ -412,6 +415,18 @@ export default function PautaSecretario() {
           <PresentesTab idReuniao={id} />
         </div>
       </div>
+      {confirmEncerrar && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-5 max-w-sm w-full mx-4">
+            <div className="font-bold mb-2">Encerrar reunião?</div>
+            <div className="text-sm text-slate-600 mb-4">Itens sem deliberação ficarão "Não deliberado". Após encerrar, não será possível alterar status nem presenças até reabrir.</div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={()=>setConfirmEncerrar(false)} className="bg-slate-100 rounded px-4 py-2 text-sm">Cancelar</button>
+              <button onClick={doEncerrar} className="bg-red-600 text-white rounded px-4 py-2 text-sm font-bold">Encerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
       {confirmClear && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-5 max-w-sm w-full mx-4">
