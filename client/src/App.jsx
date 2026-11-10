@@ -132,6 +132,12 @@ function VinculoBar() {
 }
 
 export default function App() {
+  const navigate = useNavigate()
+  useEffect(()=>{
+    const h = () => navigate('/identificacao')
+    window.addEventListener('auth:expired', h)
+    return ()=>window.removeEventListener('auth:expired', h)
+  }, [navigate])
   return (
     <AuthProvider>
       <BrowserRouter>

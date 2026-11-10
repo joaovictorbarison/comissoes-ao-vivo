@@ -23,7 +23,15 @@ export function AuthProvider({ children }) {
   const clearAuth = () => { setProfile(null); setName(''); setDeputadoVinculado(''); setToken('') }
 
   const authHeaders = () => token ? { Authorization: `Bearer ${token}` } : {}
-  const authFetch = (url, opts={}) => fetch(url, { ...opts, headers: { ...(opts.headers||{}), ...authHeaders() } })
+  const authFetch = (url, opts={}) => {
+    return fetch(url, { ...opts, headers: { ...(opts.headers||{}), ...authHeaders() } }).then(r => {
+      if (r.status === 401) {
+        clearAuth()
+        window.dispatchEvent(new CustomEvent('auth:expired'))
+      }
+      return r
+    })
+  }
 
   return <AuthCtx.Provider value={{ profile, name, deputadoVinculado, cabinetKey, token, setAuth, clearAuth, authHeaders, authFetch }}>{children}</AuthCtx.Provider>
 }
