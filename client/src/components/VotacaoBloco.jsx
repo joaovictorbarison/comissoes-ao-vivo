@@ -69,6 +69,7 @@ export default function VotacaoBloco() {
         <button onClick={()=>aplicar('rejeitado_relator')} className={`rounded px-3 py-2 text-sm font-bold ${status==='rejeitado_relator'?'bg-red-600 text-white':'bg-red-300 text-red-900'}`}>Rejeitado</button>
         <button onClick={desativar} className="rounded px-3 py-2 text-sm bg-slate-700 text-white font-bold" title="Desativa o bloco na TV e volta para a pauta normal">Desativar na TV</button>
       </div>
+      <div className="text-sm font-bold text-slate-700 mt-2">Status do bloco: <span className="text-alesp">{status==='em_discussao'?'Em discussão':status==='em_votacao'?'Em votação':status==='aprovado_relator'?'Aprovado':status==='rejeitado_relator'?'Rejeitado':status}</span></div>
       <div className="w-fit mt-2">
         <div className="grid grid-cols-10 gap-px">
         {items.map(it=>{
