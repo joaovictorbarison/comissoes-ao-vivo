@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.jsx'
 import Identificacao from './components/Identificacao.jsx'
 import ListaReunioes from './components/ListaReunioes.jsx'
@@ -18,6 +18,9 @@ function PautaRouter() {
 
 function Header() {
   const { profile, name, deputadoVinculado } = useAuth()
+  const location = useLocation()
+  const tvMatch = location.pathname.match(/^\/(?:reuniao|tv)\/([0-9]+)/)
+  const tvId = tvMatch ? tvMatch[1] : null
   const [showVinculo, setShowVinculo] = useState(false)
   const [dep, setDep] = useState('')
   const [sug, setSug] = useState([])
@@ -54,8 +57,9 @@ function Header() {
           <div className="text-xs opacity-70">Assembleia Legislativa do Estado de São Paulo</div>
         </div>
         <nav className="ml-auto flex gap-4 text-sm">
-          <Link to="/reunioes" className="underline">Reuniões</Link>
-          <Link to="/identificacao" className="underline">Identificação</Link>
+          {tvId && <a href={`/tv/${tvId}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg px-3 py-1.5 border border-white/70">📺 Ver TV</a>}
+          <Link to="/reunioes" className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg px-3 py-1.5 border border-white/70">Reuniões</Link>
+          <Link to="/identificacao" className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg px-3 py-1.5 border border-white/70">Identificação</Link>
           {profile==='assessor' && <button onClick={()=>setShowVinculo(true)} className="underline">Solicitar vínculo</button>}
         </nav>
       </header>

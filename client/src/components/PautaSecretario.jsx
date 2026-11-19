@@ -6,6 +6,14 @@ import { proposituraUrl, votoUrl } from '../lib/legisLinks.js'
 import PresentesTab from './PresentesTab.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 
+const TERMINAL_FINAL = ['aprovado_relator','aprovado_simbolico','aprovado_nominal','rejeitado_relator','rejeitado_simbolico','rejeitado_nominal','vista','retirado']
+const STATUS_SHORT = {
+  aprovado_relator:'Aprovado', aprovado_simbolico:'Aprovado', aprovado_nominal:'Aprovado',
+  rejeitado_relator:'Rejeitado', rejeitado_simbolico:'Rejeitado', rejeitado_nominal:'Rejeitado',
+  vista:'Vista', retirado:'Retirado'
+}
+function isTerminalStatus(s){ return TERMINAL_FINAL.includes(s) }
+
 const ACTIONS_ALL = [
   {k:'em_discussao', label:'Em discussão'},
   {k:'em_votacao', label:'Em votação'},
@@ -65,6 +73,7 @@ export default function PautaSecretario() {
   const [needsManual, setNeedsManual] = useState({})
   const [membros, setMembros] = useState([])
   const [partyPortal, setPartyPortal] = useState({})
+  const [openItems, setOpenItems] = useState(new Set())
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
 
@@ -279,27 +288,43 @@ export default function PautaSecretario() {
     setSavedNotas(s=>({...s, [itemId]: true}))
   }
 
+  const toggleItem = (key) => {
+    setOpenItems(s => {
+      const n = new Set(s)
+      if (n.has(String(key))) n.delete(String(key)); else n.add(String(key))
+      return n
+    })
+  }
+
   const deputadosPresentes = presencas.filter(p=>p.profile==='deputado')
   const comissaoNome = meeting?.solicitante || meeting?.colegiadosRelacionados?.map(c=>`${c.sigla} — ${c.nome}`).join('; ') || 'Painel do Secretário'
-  const meetingSuffix = encerrada ? ' - Reunião encerrada' : (iniciada ? ' - Reunião iniciada' : '')
+
 
   return (
     <div>
-      <div className="flex items-center gap-2 flex-wrap justify-between">
-        <h1 className="text-lg font-extrabold text-alesp">{comissaoNome}{meetingSuffix}</h1>
-        <div className="flex gap-2 flex-wrap">
-          {!iniciada && <button onClick={iniciar} className="text-sm w-36 rounded-lg px-3 py-2 font-bold bg-green-600 text-white">Iniciar reunião</button>}
-          {iniciada && !encerrada && <button onClick={encerrar} className="text-sm w-36 rounded-lg px-3 py-2 font-bold bg-red-600 text-white">Encerrar reunião</button>}
-          {encerrada && <button onClick={reabrir} className="text-sm w-36 rounded-lg px-3 py-2 font-bold bg-blue-600 text-white">Reabrir reunião</button>}
-          <a href={`/api/reuniao/${id}/relatorio.pdf`} className="text-sm bg-yellow-400 text-slate-900 rounded-lg px-3 py-2 font-bold">Baixar relatório</a>
-          <button onClick={()=>setConfirmClear(true)} className="text-sm bg-slate-700 text-white rounded-lg px-3 py-2 font-bold">Limpar dados</button>
-          <Link to={`/tv/${id}`} target="_blank" className="text-sm bg-black text-white rounded-lg px-3 py-2 font-bold">📺 Ver TV (testar)</Link>
-          <Link to={`/reuniao/${id}/bloco`} className="text-sm bg-purple-600 text-white rounded-lg px-3 py-2 font-bold">Votação em Bloco</Link>
-          <Link to={`/reuniao/${id}/vista`} className="text-sm bg-orange-500 text-white rounded-lg px-3 py-2 font-bold">Registro de Vista</Link>
+      <div className="bg-white border rounded-xl px-3 py-2 flex items-center gap-3 flex-wrap justify-between shadow-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-alesp text-white flex items-center justify-center font-black shrink-0">AL</div>
+          <div className="min-w-0">
+            <h1 className="text-sm font-extrabold text-slate-900 leading-tight truncate max-w-[420px]" title={comissaoNome}>{comissaoNome}</h1>
+            <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+              <span className={`w-2 h-2 rounded-full ${encerrada ? 'bg-red-500' : (iniciada ? 'bg-green-600' : 'bg-slate-300')}`}/>
+              {encerrada ? 'Reunião encerrada' : (iniciada ? 'Reunião iniciada' : 'Aguardando início')}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {!iniciada && <button onClick={iniciar} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-green-700 hover:bg-green-600 text-white">▶ Iniciar reunião</button>}
+          {iniciada && !encerrada && <button onClick={encerrar} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white">■ Encerrar reunião</button>}
+          {encerrada && <button onClick={reabrir} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white">↺ Reabrir reunião</button>}
+          <Link to={`/reuniao/${id}/vista`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50">✎ Registro de Vista</Link>
+          <Link to={`/reuniao/${id}/bloco`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50">☰ Votação em Bloco</Link>
+          <button onClick={()=>setConfirmClear(true)} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold border border-red-200 text-red-700 bg-white hover:bg-red-50">✕ Limpar dados</button>
+          <a href={`/api/reuniao/${id}/relatorio.pdf`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-alesp hover:bg-blue-800 text-white">↓ Relatório</a>
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 mt-4">
-        <div className="order-2 lg:order-1">
+        <div className="order-2 lg:order-1 min-w-0">
           {items.map(it=>{
             const proc = it.processoDadosView||{}
             const vote = (it.documentosVoto||[])[0] || {}
@@ -311,12 +336,29 @@ export default function PautaSecretario() {
             const nomVotes = votosNom[it.id] || []
             const outroCount = nomVotes.filter(v=>v.voto==='outro').length
             const needManual = outroCount >= 4
-            return (
-              <div key={it.id} className={`border-2 rounded-xl p-4 mb-3 ${cardClass(status)}`}>
-                <div className="flex items-baseline gap-3 flex-wrap">
-                  <span className="text-2xl font-black text-slate-900">Item {it.nuOrdem} - {pUrl ? <a href={pUrl} target="_blank" rel="noreferrer" className="text-alesp underline">{proc.txDescricao}</a> : <>{proc.txDescricao}</>}</span>
+            const q = it.processoDadosView?.txDescricao || ''
+            const isTerminal = isTerminalStatus(status)
+            const expanded = !isTerminal || openItems.has(String(it.id))
+            if (!expanded) {
+              return (
+                <div key={it.id} className={`border-2 rounded-xl mb-2 ${cardClass(status)} max-w-full overflow-hidden`}>
+                  <button onClick={()=>toggleItem(it.id)} className="w-full flex items-center gap-2 text-left px-3 py-2 min-w-0">
+                    <span className="text-lg font-black text-slate-900 shrink-0">Item {it.nuOrdem}</span>
+                    <span className="min-w-0 flex-1 truncate block text-sm font-bold text-slate-900">— {q}</span>
+                    <span className="text-[10px] uppercase tracking-wide font-bold text-slate-700 bg-white/70 border border-slate-300 rounded-full px-2 py-0.5 shrink-0">{STATUS_SHORT[status] || status}</span>
+                    <span className="text-xs text-slate-700 shrink-0">▼</span>
+                  </button>
                 </div>
-                <div className="font-bold mt-1 text-slate-800">{proc.txEmenta}</div>
+              )
+            }
+            return (
+              <div key={it.id} className={`border-2 rounded-xl p-4 mb-3 ${cardClass(status)} max-w-full overflow-hidden`}>
+                <button onClick={isTerminal ? ()=>toggleItem(it.id) : undefined} className={`flex items-baseline gap-3 flex-wrap w-full text-left min-w-0 ${isTerminal ? 'cursor-pointer' : ''}`}>
+                  <span className="text-2xl font-black text-slate-900 break-words">Item {it.nuOrdem} - {pUrl ? <a href={pUrl} target="_blank" rel="noreferrer" className="text-alesp underline">{proc.txDescricao}</a> : <>{proc.txDescricao}</>}</span>
+                  {isTerminal && <span className="ml-auto text-[10px] uppercase tracking-wide font-bold text-slate-700 bg-white/70 border border-slate-300 rounded-full px-2 py-0.5 self-center">{STATUS_SHORT[status] || status}</span>}
+                  {isTerminal && <span className="text-xs text-slate-700 self-center">▼</span>}
+                </button>
+                <div className="font-bold mt-1 text-slate-800 break-words">{proc.txEmenta}</div>
                 <div className="text-sm text-slate-600 mt-1">Autor: {proc.txNomeAutores}</div>
                 {vote.autores && vote.conclusao && <div className="text-sm text-slate-600 mt-1">{vUrl ? <a href={vUrl} target="_blank" rel="noreferrer" className="text-alesp underline">Relator: {vote.autores} — <b>{vote.conclusao}</b></a> : <>Relator: {vote.autores} — <b>{vote.conclusao}</b></>}</div>}
                 <div className="flex flex-wrap gap-2 mt-3">

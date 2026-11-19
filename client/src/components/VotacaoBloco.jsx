@@ -56,11 +56,6 @@ export default function VotacaoBloco() {
     if (isTerminal) setSelected(new Set())
     load()
   }
-  const desativar = async () => {
-    await authFetch(`/api/reuniao/${id}/bloco`, {method:'DELETE'})
-    setSelected(new Set())
-    load()
-  }
 
   const comissaoNome = meeting?.solicitante || meeting?.colegiadosRelacionados?.map(c=>`${c.sigla} — ${c.nome}`).join('; ') || 'Votação em Bloco'
 
@@ -70,7 +65,6 @@ export default function VotacaoBloco() {
         <h1 className="text-lg font-extrabold text-alesp">{comissaoNome} — Votação em Bloco</h1>
         <div className="flex gap-2 flex-wrap">
           <Link to={`/reuniao/${id}`} className="text-sm bg-slate-700 text-white rounded-lg px-3 py-2 font-bold">Voltar</Link>
-          <Link to={`/tv/${id}`} target="_blank" className="text-sm bg-black text-white rounded-lg px-3 py-2 font-bold">📺 Ver TV</Link>
         </div>
       </div>
       <div className="flex gap-2 flex-wrap mt-3">
@@ -78,7 +72,6 @@ export default function VotacaoBloco() {
         <button onClick={()=>aplicar('em_votacao')} className={`rounded px-3 py-2 text-sm font-bold ${status==='em_votacao'?'bg-yellow-600 text-white':'bg-yellow-300 text-yellow-900'}`}>Em votação</button>
         <button onClick={()=>aplicar('aprovado_relator')} className={`rounded px-3 py-2 text-sm font-bold ${status==='aprovado_relator'?'bg-green-600 text-white':'bg-green-300 text-green-900'}`}>Aprovado</button>
         <button onClick={()=>aplicar('rejeitado_relator')} className={`rounded px-3 py-2 text-sm font-bold ${status==='rejeitado_relator'?'bg-red-600 text-white':'bg-red-300 text-red-900'}`}>Rejeitado</button>
-        <button onClick={desativar} className="rounded px-3 py-2 text-sm bg-slate-700 text-white font-bold" title="Desativa o bloco na TV e volta para a pauta normal">Desativar na TV</button>
       </div>
       <div className="text-sm font-bold text-slate-700 mt-2">Status do bloco: <span className="text-alesp">{status==='em_discussao'?'Em discussão':status==='em_votacao'?'Em votação':status==='aprovado_relator'?'Aprovado':status==='rejeitado_relator'?'Rejeitado':status}</span></div>
       {blocos.length>0 && (
