@@ -11,7 +11,7 @@ Dar às telas de leitura (deputado, assessor e cidadão anônimo) o mesmo foco q
 
 ## Objetivos
 
-1. **Header anônimo enxuto:** para `profile==='anonimo'`, não exibir os botões "Ver TV" e "Identificação" na barra superior.
+1. **Header anônimo enxuto:** para visualização pública (`profile==='anonimo'` **ou** sem perfil/`null`, que é o caso de quem escaneia o QR), não exibir os botões "Ver TV" e "Identificação" na barra superior.
 2. **Collapse de itens finalizados** nas telas `PautaAssessor` (deputado e assessor) e `Acompanhamento` (anônimo), idêntico ao do secretário.
 3. **Painel de presenças somente-leitura e recolhível** na tela `Acompanhamento` (anônimo), mostrando o elenco da comissão (efetivos + substitutos, com partido) com marcação de presença, e outros parlamentares presentes (não-membros).
 
@@ -69,7 +69,7 @@ Dar às telas de leitura (deputado, assessor e cidadão anônimo) o mesmo foco q
 
 ## Testes (TDD)
 
-- Header: perfil `anonimo` não renderiza "Ver TV" nem "Identificação"; mantém "Reuniões"; deputado/assessor/secretário inalterados.
+- Header: perfil `anonimo` **e** perfil nulo (QR) não renderizam "Ver TV" nem "Identificação"; mantêm "Reuniões"; deputado/assessor/secretário inalterados.
 - Collapse (PautaAssessor e Acompanhamento): item finalizado aparece recolhido (linha compacta) e expande ao clicar; item `em_votacao`/`pendente` sempre aberto; `nao_deliberado` não recolhe.
 - PresencasPublicas: lista efetivos/substitutos com partido e marca confirmados como presentes; mostra outros parlamentares presentes; **não** renderiza botões Confirmar/Excluir/Incluir; usa fetch público (sem `authFetch`).
 - Suítes client/server existentes permanecem verdes.
