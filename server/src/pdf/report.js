@@ -208,4 +208,134 @@ async function generateAssessoriaPdf(idReuniao, cabinetKey) {
   })
 }
 
-module.exports = { generatePdf, generateAssessoriaPdf }
+const AVISO_PUBLICO = 'Relatório provisório, sujeito à revisão da Secretaria das Comissões. Os dados oficiais estarão disponíveis oportunamente no site oficial da Assembleia Legislativa do Estado de São Paulo (al.sp.gov.br).'
+
+function statusTextoPublico(item, vistas) {
+  const st = item?.status_oficial
+  if (st === 'vista') {
+    const names = (vistas && vistas[item.id]) || []
+    return names.length ? `Vista — ${names.join(', ')}` : 'Vista'
+  }
+  const map = {
+    pendente: 'Pendente',
+    em_discussao: 'Em discussão',
+    em_votacao: 'Em votação',
+    nao_deliberado: 'Não deliberado',
+    aprovado_relator: 'Aprovado o voto do relator',
+    rejeitado_relator: 'Rejeitado o voto do relator',
+    aprovado_simbolico: 'Aprovado o voto do relator (votação simbólica)',
+    rejeitado_simbolico: 'Rejeitado o voto do relator (votação simbólica)',
+    aprovado_nominal: 'Aprovado o voto do relator (votação nominal)',
+    rejeitado_nominal: 'Rejeitado o voto do relator (votação nominal)',
+    aprovado_separado: 'Aprovado voto em separado',
+    retirado: 'Retirado'
+  }
+  return map[st] || st || 'Pendente'
+}
+
+function parseIds(txt) {
+  try {
+    const ids = JSON.parse(txt || '[]')
+    return Array.isArray(ids) ? ids : []
+  } catch { return [] }
+}
+
+async function buildPublicReportData(idReuniao) {
+  const { db, raw, items, pres, vistas, encerrada, simbolicas, nominais } = loadMeeting(idReuniao)
+  const partyMaps = await buildPartyMaps(raw)
+  const publicItems = items.map(i => {
+    const proc = i.processoDadosView || {}
+    const vote = (i.documentosVoto || [])[0] || {}
+    return {
+      id: i.id,
+      nuOrdem: i.nuOrdem,
+      descricao: proc.txDescricao || '',
+      ementa: proc.txEmenta || '',
+      autores: proc.txNomeAutores || '',
+      relator: vote.autores || '',
+      voto: vote.conclusao || '',
+      status: statusTextoPublico(i, vistas),
+      simbolica: normalizeSymbolic(simbolicas[i.id], partyMaps),
+      vistas: vistas[i.id] || [],
+      nominal: (nominais[i.id] || []).map(v => ({ deputado: v.deputado_name, voto: v.voto }))
+    }
+  })
+  const nuOrdens = (ids) => ids
+    .map(id => items.find(i => String(i.id) === String(id)))
+    .filter(Boolean)
+    .map(i => i.nuOrdem)
+  const blocos = db.prepare('SELECT numero,item_ids,resultado FROM blocos WHERE id_reuniao=? ORDER BY numero')
+    .all(String(idReuniao))
+    .map(r => ({ numero: r.numero, itemNums: nuOrdens(parseIds(r.item_ids)), resultado: r.resultado }))
+  const rowBloco = db.prepare('SELECT item_ids,status,ativo FROM votacao_bloco WHERE id_reuniao=?').get(String(idReuniao))
+  const blocoAtivo = rowBloco && rowBloco.ativo
+    ? { itemNums: nuOrdens(parseIds(rowBloco.item_ids)), status: statusTextoPublico({ status_oficial: rowBloco.status }, {}) }
+    : null
+  const numeros = (pred) => publicItems.filter(pred).map(i => i.nuOrdem).filter(n => n != null)
+  const resumo = {
+    aprovados: numeros(i => i.status.startsWith('Aprovado')),
+    rejeitados: numeros(i => i.status.startsWith('Rejeitado')),
+    vistas: numeros(i => i.status.startsWith('Vista')),
+    retirados: numeros(i => i.status === 'Retirado'),
+    naoDeliberados: numeros(i => i.status === 'Não deliberado')
+  }
+  return {
+    raw,
+    encerrada,
+    presencas: pres.map(p => ({ name: p.name, label: displayName(p.name, partyMaps) })),
+    items: publicItems,
+    blocoAtivo,
+    blocos,
+    resumo
+  }
+}
+
+async function generatePublicoPdf(idReuniao) {
+  const d = await buildPublicReportData(idReuniao)
+  const lista = (arr) => arr.length ? arr.join(', ') : 'Nenhum'
+  return renderPdf(doc => {
+    cabecalho(doc, d.raw)
+    doc.moveDown(0.5)
+    doc.fontSize(10).fillColor('#b91c1c').text(AVISO_PUBLICO, { width: 515, lineGap: 3 })
+    doc.fillColor('black').moveDown()
+    doc.fontSize(13).text('Presenças confirmadas')
+    doc.fontSize(10)
+    if (d.presencas.length) d.presencas.forEach(p => doc.text(`• ${p.label}`))
+    else doc.text('• Nenhuma presença confirmada.')
+    doc.moveDown()
+    doc.fontSize(13).text('Itens da pauta — deliberações e vistas')
+    doc.fontSize(10).moveDown(0.3)
+    if (!d.items.length) doc.text('Nenhum item de pauta registrado.')
+    d.items.forEach(i => {
+      doc.text(`${i.nuOrdem || ''}. ${i.descricao} — ${i.ementa}`, { width: 515, lineGap: 3 })
+      doc.text(`Autoria: ${i.autores}`, { width: 515 })
+      doc.text(`Relatoria: ${i.relator}`, { width: 515 })
+      doc.text(`Voto: ${i.voto}`, { width: 515 })
+      doc.text(`Status: ${i.status}`, { width: 515, lineGap: 3 })
+      if (i.vistas.length) doc.text(`Pedido de vista: ${i.vistas.join(', ')}`, { width: 515 })
+      const s = i.simbolica
+      if (s.efetivos.length || s.substitutos.length || s.outros.length) {
+        doc.text('Votação simbólica:', { width: 515 })
+        doc.text(`Efetivos: ${s.efetivos.join(', ') || '—'}`, { indent: 12, width: 503 })
+        doc.text(`Substitutos: ${s.substitutos.join(', ') || '—'}`, { indent: 12, width: 503 })
+        doc.text(`Outros: ${s.outros.join(', ') || '—'}`, { indent: 12, width: 503 })
+      }
+      i.nominal.forEach(v => doc.text(`• ${v.deputado}: ${v.voto}`, { indent: 12, width: 503 }))
+      doc.moveDown(0.5)
+    })
+    doc.moveDown(0.5).fontSize(13).text('Votações em bloco')
+    doc.fontSize(10)
+    if (d.blocoAtivo) doc.text(`Em andamento — Itens: ${d.blocoAtivo.itemNums.join(', ')} — ${d.blocoAtivo.status}`, { width: 515 })
+    d.blocos.forEach(b => doc.text(`Bloco ${b.numero} — Itens: ${b.itemNums.join(', ')} — Resultado: ${b.resultado}`, { width: 515 }))
+    if (!d.blocoAtivo && !d.blocos.length) doc.text('Nenhuma votação em bloco registrada.')
+    doc.moveDown().fontSize(13).text('Resumo')
+    doc.fontSize(10)
+    doc.text(`Aprovados: ${lista(d.resumo.aprovados)}`)
+    doc.text(`Rejeitados: ${lista(d.resumo.rejeitados)}`)
+    doc.text(`Pedidos de vista: ${lista(d.resumo.vistas)}`)
+    doc.text(`Retirados: ${lista(d.resumo.retirados)}`)
+    doc.text(`Não deliberados: ${lista(d.resumo.naoDeliberados)}`)
+  })
+}
+
+module.exports = { generatePdf, generateAssessoriaPdf, buildPublicReportData, generatePublicoPdf, statusTextoPublico }

@@ -1,7 +1,7 @@
 const express = require('express')
 const { fetchLegis } = require('../legisClient.js')
 const { getDb } = require('../db.js')
-const { generatePdf, generateAssessoriaPdf } = require('../pdf/report.js')
+const { generatePdf, generateAssessoriaPdf, generatePublicoPdf } = require('../pdf/report.js')
 const router = express.Router()
 const { requireAuth } = require('../auth.js')
 
@@ -225,6 +225,14 @@ router.get('/reuniao/:id/relatorio-assessoria.pdf', async (req, res) => {
   const buf = await generateAssessoriaPdf(String(req.params.id), req.query.cabinetKey || '')
   res.setHeader('Content-Type','application/pdf')
   res.setHeader('Content-Disposition', `attachment; filename="relatorio-assessoria-${req.params.id}.pdf"`)
+  res.send(buf)
+})
+
+router.get('/reuniao/:id/relatorio-publico.pdf', async (req, res) => {
+  const id = String(req.params.id)
+  const buf = await generatePublicoPdf(id)
+  res.setHeader('Content-Type','application/pdf')
+  res.setHeader('Content-Disposition', `attachment; filename="relatorio-publico-${id}.pdf"`)
   res.send(buf)
 })
 
