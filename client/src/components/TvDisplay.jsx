@@ -141,6 +141,26 @@ export default function TvDisplay() {
   const numTipo = data.tituloReuniao || (data.nuReuniao != null ? `${data.nuReuniao}ª Reunião ${data.tipoConvocacao||'Ordinária'}` : '')
   const totalItens = items.length
 
+  if (data.encerrada) {
+    const nums = (arr) => arr.map(i=>i.nuOrdem).sort((a,b)=>a-b).join(', ') || '—'
+    const aprovados = nums(items.filter(i => String(i.status_oficial||'').startsWith('aprovado')))
+    const rejeitados = nums(items.filter(i => String(i.status_oficial||'').startsWith('rejeitado')))
+    const vistas = nums(items.filter(i => i.status_oficial === 'vista'))
+    const naoDelib = nums(items.filter(i => i.status_oficial === 'nao_deliberado' || i.status_oficial === 'pendente' || i.status_oficial === 'retirado'))
+    return (
+      <TvShell>
+        <div className="text-[clamp(1.2vh,1.6vw,2.4vh)] uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
+        {comissaoNome && <div className="text-[clamp(1.8vh,2.4vw,3.6vh)] font-bold mt-2 opacity-90">{comissaoNome}</div>}
+        <div className="inline-block bg-slate-700 text-white font-extrabold px-[2vw] py-[1vh] rounded-full mt-[3vh] text-[clamp(1.6vh,2vw,3vh)] tracking-wide">REUNIÃO ENCERRADA</div>
+        <div className="text-[clamp(1.6vh,2.2vw,3.2vh)] font-bold mt-[2vh] opacity-90">{totalItens} itens em pauta</div>
+        {aprovados !== '—' && <div className="text-[clamp(1.4vh,1.8vw,2.6vh)] mt-[2vh] opacity-95">Itens aprovados: {aprovados}</div>}
+        {rejeitados !== '—' && <div className="text-[clamp(1.4vh,1.8vw,2.6vh)] mt-[1vh] opacity-95">Itens rejeitados: {rejeitados}</div>}
+        {vistas !== '—' && <div className="text-[clamp(1.4vh,1.8vw,2.6vh)] mt-[1vh] opacity-95">Pedidos de vista: itens {vistas}</div>}
+        {naoDelib !== '—' && <div className="text-[clamp(1.4vh,1.8vw,2.6vh)] mt-[1vh] opacity-95">Itens não deliberados: {naoDelib}</div>}
+      </TvShell>
+    )
+  }
+
   // Tela de pedido de vista (persiste até o status mudar)
   if (vistaBloco) {
     const plural = vistaBloco.names.length > 1

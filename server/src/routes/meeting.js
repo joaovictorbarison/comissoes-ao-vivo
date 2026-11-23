@@ -13,6 +13,15 @@ function isEncerrada(id) {
   const s = getDb().prepare('SELECT encerrada_em FROM sessions WHERE id_reuniao=?').get(String(id))
   return !!(s && s.encerrada_em)
 }
+function maybeDeactivateBloco(db, io, id, itemId) {
+  const row = db.prepare('SELECT item_ids, ativo FROM votacao_bloco WHERE id_reuniao=?').get(String(id))
+  if (!row || !row.ativo) return
+  let ids = []
+  try { ids = JSON.parse(row.item_ids) } catch {}
+  if (ids.map(String).includes(String(itemId))) return
+  db.prepare('UPDATE votacao_bloco SET ativo=0 WHERE id_reuniao=?').run(String(id))
+  io?.to('reuniao:'+id).emit('bloco_changed', { idReuniao:id, itemIds: [], status: 'pendente', ativo: false })
+}
 
 router.post('/auth/secretario', (req, res) => {
   const expected = (process.env.SECRETARIO_SENHA || 'dac2027').trim()
@@ -81,14 +90,17 @@ router.post('/reuniao/:id/status', requireAuth, (req, res) => {
   }
   db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), String(itemId), status)
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status })
+  maybeDeactivateBloco(db, req.app.get('io'), req.params.id, itemId)
   res.json({ ok:true })
 })
 
 router.post('/reuniao/:id/item-ativo', requireAuth, (req, res) => {
   const { itemId } = req.body
-  getDb().prepare('UPDATE sessions SET active_item_id=? WHERE id_reuniao=?').run(String(itemId), String(req.params.id))
+  const db = getDb()
+  db.prepare('UPDATE sessions SET active_item_id=? WHERE id_reuniao=?').run(String(itemId), String(req.params.id))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('active_item_changed', { idReuniao:req.params.id, itemId })
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status:'em_votacao' })
+  maybeDeactivateBloco(db, req.app.get('io'), req.params.id, itemId)
   res.json({ ok:true })
 })
 
@@ -246,11 +258,13 @@ router.post('/reuniao/:id/vista', requireAuth, (req, res) => {
   if (names.length===0) {
     db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), String(itemId), 'pendente')
     req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status:'pendente' })
+    maybeDeactivateBloco(db, req.app.get('io'), req.params.id, itemId)
     return res.json({ ok:true, cleared:true })
   }
   const ins = db.prepare('INSERT INTO vistas (id_reuniao,item_id,name) VALUES (?,?,?)')
   names.forEach(n => ins.run(String(req.params.id), String(itemId), n))
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status:'vista' })
+  maybeDeactivateBloco(db, req.app.get('io'), req.params.id, itemId)
   res.json({ ok:true })
 })
 
@@ -405,6 +419,7 @@ router.post('/reuniao/:id/votacao-simbolica', requireAuth, async (req, res) => {
   getDb().prepare('INSERT OR REPLACE INTO votacao_simbolica (id_reuniao,item_id,deputados) VALUES (?,?,?)').run(id, String(itemId), JSON.stringify(grouped))
   getDb().prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(id, String(itemId), statusFinal)
   req.app.get('io')?.to('reuniao:'+id).emit('official_status_changed', { idReuniao:id, itemId, status: statusFinal })
+  maybeDeactivateBloco(getDb(), req.app.get('io'), id, itemId)
   res.json({ ok:true, deputados: grouped })
 })
 
@@ -463,6 +478,7 @@ router.post('/reuniao/:id/votacao-nominal/finalizar', requireAuth, (req, res) =>
   const status = approved ? 'aprovado_nominal' : 'rejeitado_nominal'
   getDb().prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), String(itemId), status)
   req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId, status })
+  maybeDeactivateBloco(getDb(), req.app.get('io'), req.params.id, itemId)
   res.json({ ok:true, status, fav, contra, outro })
 })
 
@@ -494,12 +510,12 @@ router.post('/reuniao/:id/bloco', (req, res) => {
   const { itemIds, status } = req.body || {}
   const ids = Array.isArray(itemIds) ? itemIds.map(String) : []
   const st = status || 'em_discussao'
+  const isTerminal = ['aprovado_relator','rejeitado_relator','aprovado_simbolico','aprovado_nominal','rejeitado_nominal','rejeitado_simbolico','vista','retirado'].includes(st)
   const db = getDb()
   db.prepare('INSERT INTO votacao_bloco (id_reuniao,item_ids,status,ativo) VALUES (?,?,?,1) ON CONFLICT(id_reuniao) DO UPDATE SET item_ids=excluded.item_ids, status=excluded.status, ativo=1, updated_at=datetime(\'now\')').run(String(req.params.id), JSON.stringify(ids), st)
   ids.forEach(iid => {
     db.prepare('INSERT INTO official_status (id_reuniao,item_id,status) VALUES (?,?,?) ON CONFLICT(id_reuniao,item_id) DO UPDATE SET status=excluded.status').run(String(req.params.id), iid, st)
   })
-  const isTerminal = ['aprovado_relator','rejeitado_relator','aprovado_simbolico','aprovado_nominal','rejeitado_nominal','rejeitado_simbolico','vista','retirado'].includes(st)
   if (isTerminal && ids.length) {
     const numero = (db.prepare('SELECT COUNT(*) c FROM blocos WHERE id_reuniao=?').get(String(req.params.id)).c || 0) + 1
     const resultado = st.startsWith('aprovado') ? 'Aprovados' : (st.startsWith('rejeitado') ? 'Rejeitados' : (st==='vista'?'Vista':'Retirado'))
@@ -513,7 +529,7 @@ router.post('/reuniao/:id/bloco', (req, res) => {
   ids.forEach(iid => {
     req.app.get('io')?.to('reuniao:'+req.params.id).emit('official_status_changed', { idReuniao:req.params.id, itemId: iid, status: st })
   })
-  req.app.get('io')?.to('reuniao:'+req.params.id).emit('bloco_changed', { idReuniao:req.params.id, itemIds: ids, status: st })
+  req.app.get('io')?.to('reuniao:'+req.params.id).emit('bloco_changed', { idReuniao:req.params.id, itemIds: ids, status: st, ativo: true })
   res.json({ ok:true })
 })
 
