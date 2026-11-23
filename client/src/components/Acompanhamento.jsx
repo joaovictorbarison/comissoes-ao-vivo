@@ -4,6 +4,7 @@ import { useSocket } from '../hooks/useSocket.js'
 import { useProcessoLinks } from '../hooks/useProcessoLinks.js'
 import { proposituraUrl, votoUrl } from '../lib/legisLinks.js'
 import { isTerminalStatus, STATUS_SHORT, useOpenItems } from '../lib/itemCollapse.js'
+import PresencasPublicas from './PresencasPublicas.jsx'
 
 const STATUS_LABEL = {
   pendente: 'PENDENTE',
@@ -110,6 +111,7 @@ export default function Acompanhamento() {
       <div className="mt-3 mb-4 text-xs text-slate-500">
         Acompanhamento público da reunião. Informações sujeitas a atualização durante a sessão.
       </div>
+      <PresencasPublicas idReuniao={id} />
       {items.map(it => {
         const status = it.status_oficial || 'pendente'
         const proc = it.processoDadosView || it.processo || {}

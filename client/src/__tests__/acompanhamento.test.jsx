@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import Acompanhamento from '../components/Acompanhamento.jsx'
 
 vi.mock('../hooks/useSocket.js', () => ({ useSocket: () => ({ on: () => {}, off: () => {} }) }))
+vi.mock('../components/PresencasPublicas.jsx', () => ({ default: () => <div>PainelPresencasPublicas</div> }))
 
 test('anonymous accompaniment shows meeting info, items and public report, without private notes', async () => {
   vi.stubGlobal('fetch', async (url) => {
@@ -18,6 +19,7 @@ test('anonymous accompaniment shows meeting info, items and public report, witho
   })
   render(<MemoryRouter initialEntries={['/reuniao/1000007671']}><Routes><Route path="/reuniao/:id" element={<Acompanhamento />} /></Routes></MemoryRouter>)
   expect(await screen.findByText(/PL 197\/2019/)).toBeTruthy()
+  expect(await screen.findByText('PainelPresencasPublicas')).toBeTruthy()
   expect(screen.getByText(/CDD/)).toBeTruthy()
   expect(screen.getByText(/1ª Reunião Ordinária/)).toBeTruthy()
   expect(screen.getByText(/Plenário José Bonifácio/)).toBeTruthy()
