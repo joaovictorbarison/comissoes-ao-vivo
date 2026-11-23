@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useSocket } from '../hooks/useSocket.js'
 import { useProcessoLinks } from '../hooks/useProcessoLinks.js'
 import { proposituraUrl, votoUrl } from '../lib/legisLinks.js'
+import { isTerminalStatus, STATUS_SHORT, useOpenItems } from '../lib/itemCollapse.js'
 import AssessoresTab from './AssessoresTab.jsx'
 
 const STATUS_LABEL = {
@@ -60,6 +61,7 @@ export default function PautaAssessor() {
   const [savedNotes, setSavedNotes] = useState({})
   const socket = useSocket(id)
   const linksMap = useProcessoLinks(items)
+  const [openItems, toggleItem] = useOpenItems()
 
   const load = async () => {
     const res = await authFetch(`/api/reuniao/${id}`)
@@ -146,10 +148,25 @@ export default function PautaAssessor() {
         const vUrl = votoUrl(vote)
         const vistaNames = vistas[it.id] || []
         const isVista = status==='vista' || vistaNames.length>0
+        const isTerminal = isTerminalStatus(status)
+        const expanded = !isTerminal || openItems.has(String(it.id))
+        if (!expanded) {
+          return (
+            <div key={it.id} className={`border-2 rounded-xl mb-2 overflow-hidden ${cardTone(status)}`}>
+              <button aria-label={`Expandir item ${it.nuOrdem}`} onClick={()=>toggleItem(it.id)} className="w-full flex items-center gap-2 text-left px-3 py-2 min-w-0">
+                <span className="text-lg font-black text-slate-900 shrink-0">Item {it.nuOrdem}</span>
+                <span className="min-w-0 flex-1 truncate block text-sm font-bold text-slate-900">— {proc.txDescricao}</span>
+                <span className="text-[10px] uppercase tracking-wide font-bold text-slate-700 bg-white/70 border border-slate-300 rounded-full px-2 py-0.5 shrink-0">{STATUS_SHORT[status]||status}</span>
+                <span className="text-xs text-slate-700 shrink-0">▼</span>
+              </button>
+            </div>
+          )
+        }
         return (
           <article key={it.id} className={`border-2 rounded-xl overflow-hidden mb-3 ${cardTone(status)}`}>
-            <div className={`px-4 py-2 text-xs font-extrabold flex justify-between ${isVista && vistaNames.length ? 'bg-orange-300 text-orange-900' : (STATUS_COLOR[status]||'bg-slate-200 text-slate-700')}`}>
+            <div className={`px-4 py-2 text-xs font-extrabold flex justify-between items-center ${isVista && vistaNames.length ? 'bg-orange-300 text-orange-900' : (STATUS_COLOR[status]||'bg-slate-200 text-slate-700')}`}>
               <span>● {isVista && vistaNames.length ? `VISTA SOLICITADA: ${vistaNames.join(', ')}` : STATUS_LABEL[status]||status}</span>
+              {isTerminal && <button aria-label={`Recolher item ${it.nuOrdem}`} onClick={()=>toggleItem(it.id)} className="text-slate-700 shrink-0">▼</button>}
             </div>
             <div className="p-4">
               <span className="bg-alesp text-white text-xs px-2 py-1 rounded-full">ITEM {it.nuOrdem} • {pUrl ? <a href={pUrl} target="_blank" rel="noreferrer" className="underline text-white">{proc.txDescricao}</a> : proc.txDescricao}</span>
