@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket.js'
+import TvQrBadge from './TvQrBadge.jsx'
 
 function formatName(n='') {
   return String(n||'').trim().toLowerCase().split(/\s+/).map(w => ['de','da','do','das','dos','e'].includes(w) ? w : w.charAt(0).toUpperCase()+w.slice(1)).join(' ')
@@ -27,6 +28,27 @@ function statusColor(status) {
   if (status==='em_votacao') return 'bg-yellow-400 text-black animate-pulse'
   if (status==='em_discussao') return 'bg-blue-300 text-blue-900'
   return 'bg-slate-300 text-slate-900'
+}
+
+function Card({ children }) {
+  return (
+    <div className="text-center w-full h-full min-h-0 flex flex-col items-center justify-center border-2 border-blue-800 rounded-2xl p-[4vh] bg-gradient-to-b from-alesp to-black overflow-hidden">
+      {children}
+    </div>
+  )
+}
+
+function TvShell({ children }) {
+  return (
+    <div data-testid="tv-shell" className="h-screen w-screen overflow-hidden bg-black text-white flex flex-col p-[1.5vh] gap-[1vh]">
+      <div className="flex-1 min-h-0 w-full">
+        <Card>{children}</Card>
+      </div>
+      <div className="h-[12vh] shrink-0 flex items-center justify-center">
+        <TvQrBadge />
+      </div>
+    </div>
+  )
 }
 
 export default function TvDisplay() {
@@ -106,7 +128,13 @@ export default function TvDisplay() {
 
   const items = data.items || []
   const active = items.find(i=>String(i.id)===String(currentId)) || items.find(i=>String(i.id)===String(resultItemId)) || initialPick(items)
-  if (!active) return <div className="bg-black text-white min-h-screen flex items-center justify-center">Aguardando item…</div>
+  if (!active) {
+    return (
+      <TvShell>
+        <div className="text-[clamp(2.5vh,4vw,6vh)] font-bold opacity-90">Aguardando item…</div>
+      </TvShell>
+    )
+  }
   const isIdle = !data.iniciada && (active?.status_oficial==='pendente' && !items.some(i=>i.status_oficial==='em_votacao' || i.status_oficial==='em_discussao'))
   const showSplash = isIdle || (!items.some(i=>i.status_oficial==='em_votacao' || i.status_oficial==='em_discussao' || isTerminal(i)) && !resultItemId)
   const comissaoNome = data.solicitante || data.colegiadosRelacionados?.map(c=>c.nome).join('; ') || ''
@@ -117,30 +145,26 @@ export default function TvDisplay() {
   if (vistaBloco) {
     const plural = vistaBloco.names.length > 1
     return (
-      <div className="bg-black text-white min-h-screen flex items-center justify-center p-6">
-        <div className="text-center w-full max-w-4xl border-2 border-blue-800 rounded-2xl p-10 bg-gradient-to-b from-alesp to-black">
-          <div className="text-sm uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
-          {comissaoNome && <div className="text-lg font-bold mt-1 opacity-90">{comissaoNome}</div>}
-          <div className="inline-block bg-orange-300 text-orange-900 font-extrabold px-4 py-1 rounded-full mt-4">PEDIDO DE VISTA</div>
-          <div className="text-2xl font-bold mt-5">{plural ? 'Solicitantes:' : 'Solicitante:'}</div>
-          <div className="text-3xl font-black mt-1 opacity-95">{vistaBloco.names.join(', ')}</div>
-          <div className="text-2xl font-bold mt-4">{vistaBloco.nums.includes(',') ? 'Itens:' : 'Item:'} {vistaBloco.nums}</div>
-        </div>
-      </div>
+      <TvShell>
+        <div className="text-[clamp(1.2vh,1.6vw,2.4vh)] uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
+        {comissaoNome && <div className="text-[clamp(1.8vh,2.4vw,3.6vh)] font-bold mt-2 opacity-90">{comissaoNome}</div>}
+        <div className="inline-block bg-orange-300 text-orange-900 font-extrabold px-[2vw] py-[1vh] rounded-full mt-[3vh] text-[clamp(1.8vh,2.4vw,3.6vh)]">PEDIDO DE VISTA</div>
+        <div className="text-[clamp(2.2vh,3vw,4.5vh)] font-bold mt-[3vh]">{plural ? 'Solicitantes:' : 'Solicitante:'}</div>
+        <div className="text-[clamp(3vh,4.5vw,7vh)] font-black mt-1 opacity-95">{vistaBloco.names.join(', ')}</div>
+        <div className="text-[clamp(2.2vh,3vw,4.5vh)] font-bold mt-[2vh]">{vistaBloco.nums.includes(',') ? 'Itens:' : 'Item:'} {vistaBloco.nums}</div>
+      </TvShell>
     )
   }
 
   if (showSplash) {
     return (
-      <div className="bg-black text-white min-h-screen flex items-center justify-center p-6">
-        <div className="text-center w-full max-w-4xl border-2 border-blue-800 rounded-2xl p-10 bg-gradient-to-b from-alesp to-black">
-          <div className="text-sm uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
-          {comissaoNome && <div className="text-3xl font-black mt-4 opacity-95 leading-tight">{comissaoNome}</div>}
-          <div className="text-2xl font-bold mt-6 opacity-90">{numTipo}</div>
-          <div className="text-2xl font-bold mt-2 opacity-90">{totalItens} itens em pauta</div>
-          {!data.iniciada && <div className="inline-block bg-slate-700 text-white font-extrabold px-6 py-2 rounded-full mt-6 text-lg tracking-wide">AGUARDANDO INÍCIO</div>}
-        </div>
-      </div>
+      <TvShell>
+        <div className="text-[clamp(1.2vh,1.6vw,2.4vh)] uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
+        {comissaoNome && <div className="text-[clamp(2.5vh,4vw,6.5vh)] font-black mt-[3vh] opacity-95 leading-tight">{comissaoNome}</div>}
+        <div className="text-[clamp(2vh,3vw,4.5vh)] font-bold mt-[3vh] opacity-90">{numTipo}</div>
+        <div className="text-[clamp(2vh,3vw,4.5vh)] font-bold mt-2 opacity-90">{totalItens} itens em pauta</div>
+        {!data.iniciada && <div className="inline-block bg-slate-700 text-white font-extrabold px-[2vw] py-[1vh] rounded-full mt-[3vh] text-[clamp(1.6vh,2vw,3vh)] tracking-wide">AGUARDANDO INÍCIO</div>}
+      </TvShell>
     )
   }
 
@@ -152,15 +176,13 @@ export default function TvDisplay() {
     const title = st==='em_votacao' ? 'EM VOTAÇÃO' : (st==='aprovado_relator'?'APROVADO':st==='rejeitado_relator'?'REJEITADO':st==='vista'?'VISTA':'EM DISCUSSÃO')
     const pillClass = statusColor(st==='em_votacao'?'em_votacao':st==='aprovado_relator'?'aprovado_relator':st==='rejeitado_relator'?'rejeitado_relator':st==='vista'?'vista':'em_discussao')
     return (
-      <div className="bg-black text-white min-h-screen flex items-center justify-center p-6">
-        <div className="text-center w-full max-w-4xl border-2 border-blue-800 rounded-2xl p-10 bg-gradient-to-b from-alesp to-black">
-          <div className="text-sm uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
-          {comissaoNome && <div className="text-lg font-bold mt-1 opacity-90">{comissaoNome}</div>}
-          <div className={`inline-block font-extrabold px-4 py-1 rounded-full mt-3 ${pillClass}`}>{title}</div>
-          <div className="text-2xl font-bold mt-4">Votação em bloco</div>
-          <div className="text-xl font-bold mt-2">Itens: {nums}</div>
-        </div>
-      </div>
+      <TvShell>
+        <div className="text-[clamp(1.2vh,1.6vw,2.4vh)] uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
+        {comissaoNome && <div className="text-[clamp(1.8vh,2.4vw,3.6vh)] font-bold mt-2 opacity-90">{comissaoNome}</div>}
+        <div className={`inline-block font-extrabold px-[2vw] py-[1vh] rounded-full mt-[2vh] text-[clamp(1.8vh,2.4vw,3.6vh)] ${pillClass}`}>{title}</div>
+        <div className="text-[clamp(2.5vh,3.5vw,5.5vh)] font-bold mt-[3vh]">Votação em bloco</div>
+        <div className="text-[clamp(2vh,2.8vw,4.5vh)] font-bold mt-[2vh]">Itens: {nums}</div>
+      </TvShell>
     )
   }
 
@@ -171,16 +193,14 @@ export default function TvDisplay() {
   const title = label || (isVoting ? 'EM VOTAÇÃO' : (active.status_oficial==='em_discussao' ? 'EM DISCUSSÃO' : 'PAUTA'))
   const pillClass = statusColor(active.status_oficial)
   return (
-    <div className="bg-black text-white min-h-screen flex items-center justify-center p-6">
-      <div className="text-center w-full max-w-4xl border-2 border-blue-800 rounded-2xl p-10 bg-gradient-to-b from-alesp to-black">
-        <div className="text-sm uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
-        {comissaoNome && <div className="text-lg font-bold mt-1 opacity-90">{comissaoNome}</div>}
-        <div className={`inline-block font-extrabold px-4 py-1 rounded-full mt-3 ${pillClass}`}>{title}</div>
-        <div className="text-2xl font-bold mt-4">ITEM {active.nuOrdem} - {proc.txDescricao}</div>
-        <div className="text-xl font-bold mt-2">{proc.txEmenta}</div>
-        <div className="text-base mt-3 opacity-90">Autor: {proc.txNomeAutores}</div>
-        {vote.autores && vote.conclusao && <div className="text-base opacity-90">Relator: {vote.autores} — {vote.conclusao}</div>}
-      </div>
-    </div>
+    <TvShell>
+      <div className="text-[clamp(1.2vh,1.6vw,2.4vh)] uppercase tracking-widest opacity-80 font-semibold">Assembleia Legislativa do Estado de São Paulo</div>
+      {comissaoNome && <div className="text-[clamp(1.8vh,2.4vw,3.6vh)] font-bold mt-2 opacity-90">{comissaoNome}</div>}
+      <div className={`inline-block font-extrabold px-[2vw] py-[1vh] rounded-full mt-[1.5vh] text-[clamp(1.6vh,2.2vw,3.4vh)] ${pillClass}`}>{title}</div>
+      <div className="text-[clamp(2.2vh,3.2vw,5vh)] font-bold mt-[2vh]">ITEM {active.nuOrdem} - {proc.txDescricao}</div>
+      <div className="text-[clamp(1.8vh,2.6vw,4vh)] font-bold mt-2 line-clamp-4 overflow-hidden">{proc.txEmenta}</div>
+      <div className="text-[clamp(1.4vh,1.8vw,2.8vh)] mt-[1.5vh] opacity-90">Autor: {proc.txNomeAutores}</div>
+      {vote.autores && vote.conclusao && <div className="text-[clamp(1.4vh,1.8vw,2.8vh)] opacity-90">Relator: {vote.autores} — {vote.conclusao}</div>}
+    </TvShell>
   )
 }

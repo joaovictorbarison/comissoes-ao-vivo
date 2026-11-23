@@ -150,26 +150,40 @@ function AuthExpiredHandler() {
   return null
 }
 
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<Identificacao />} />
+      <Route path="/identificacao" element={<Identificacao />} />
+      <Route path="/reunioes" element={<ListaReunioes />} />
+      <Route path="/reuniao/:id" element={<PautaRouter />} />
+      <Route path="/reuniao/:id/bloco" element={<VotacaoBloco />} />
+      <Route path="/reuniao/:id/vista" element={<RegistroVista />} />
+      <Route path="/tv/:id" element={<TvDisplay />} />
+    </Routes>
+  )
+}
+
+export function Layout() {
+  const location = useLocation()
+  if (location.pathname.startsWith('/tv/')) return <AppRoutes />
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Header />
+      <VinculoBar />
+      <main className="max-w-5xl mx-auto p-4">
+        <AppRoutes />
+      </main>
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <AuthExpiredHandler />
-        <div className="min-h-screen bg-slate-50">
-          <Header />
-          <VinculoBar />
-          <main className="max-w-5xl mx-auto p-4">
-            <Routes>
-              <Route path="/" element={<Identificacao />} />
-              <Route path="/identificacao" element={<Identificacao />} />
-              <Route path="/reunioes" element={<ListaReunioes />} />
-              <Route path="/reuniao/:id" element={<PautaRouter />} />
-              <Route path="/reuniao/:id/bloco" element={<VotacaoBloco />} />
-              <Route path="/reuniao/:id/vista" element={<RegistroVista />} />
-              <Route path="/tv/:id" element={<TvDisplay />} />
-            </Routes>
-          </main>
-        </div>
+        <Layout />
       </BrowserRouter>
     </AuthProvider>
   )

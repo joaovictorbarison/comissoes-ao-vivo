@@ -3,6 +3,8 @@ import { test, expect, vi } from 'vitest'
 import TvDisplay from '../components/TvDisplay.jsx'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
+vi.mock('qrcode', () => ({ default: { toDataURL: async () => 'data:image/png;base64,QR' }, toDataURL: async () => 'data:image/png;base64,QR' }))
+
 test('tv shows active item readonly', async () => {
   vi.stubGlobal('fetch', async () => ({ json: async () => ({ items: [{ id:'1', nuOrdem:1, status_oficial:'em_votacao', processoDadosView:{txDescricao:'PL 197/2019', txEmenta:'Institui o Programa Agente Cidadão Sênior.'}}], active_item_id:'1' }) }))
   vi.mock('../hooks/useSocket.js', () => ({ useSocket: () => ({ on:()=>{}, off:()=>{} }) }))
