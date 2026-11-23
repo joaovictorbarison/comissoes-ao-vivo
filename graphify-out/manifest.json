@@ -1,0 +1,434 @@
+{
+  "client/eslint.config.js": {
+    "mtime": 1794082049.2957194,
+    "seen": 1795302318.0704598,
+    "ast_hash": "bfe13b9e25d0af7959d0396aa103d88c",
+    "semantic_hash": "bfe13b9e25d0af7959d0396aa103d88c"
+  },
+  "client/package.json": {
+    "mtime": 1795409762.4281342,
+    "seen": 1795449953.109667,
+    "ast_hash": "9e36f7de9eeae2c05e5732dcc0bce6aa",
+    "semantic_hash": "9e36f7de9eeae2c05e5732dcc0bce6aa"
+  },
+  "client/postcss.config.js": {
+    "mtime": 1794082065.4758751,
+    "seen": 1795302318.070475,
+    "ast_hash": "66a93abcdbe34b8d2a52fc5d2c3c5282",
+    "semantic_hash": "66a93abcdbe34b8d2a52fc5d2c3c5282"
+  },
+  "client/src/App.jsx": {
+    "mtime": 1795446324.510619,
+    "seen": 1795449953.109678,
+    "ast_hash": "535aeecfd95efedf6268199cdf70e822",
+    "semantic_hash": "535aeecfd95efedf6268199cdf70e822"
+  },
+  "client/src/__tests__/identificacao.test.jsx": {
+    "mtime": 1795409691.0139804,
+    "seen": 1795449953.109688,
+    "ast_hash": "5f42d5afc20c14964f57ee0d2ebfd18c",
+    "semantic_hash": "5f42d5afc20c14964f57ee0d2ebfd18c"
+  },
+  "client/src/__tests__/legisLinks.test.js": {
+    "mtime": 1794181695.233416,
+    "seen": 1795302318.070482,
+    "ast_hash": "96c1da30abc4b62709d78513ade3cc1e",
+    "semantic_hash": "96c1da30abc4b62709d78513ade3cc1e"
+  },
+  "client/src/__tests__/lista.test.jsx": {
+    "mtime": 1794281394.6068342,
+    "seen": 1795302318.070484,
+    "ast_hash": "4d97bb1c2aaf96edd9f86b6b850bc0ae",
+    "semantic_hash": "4d97bb1c2aaf96edd9f86b6b850bc0ae"
+  },
+  "client/src/__tests__/pautaAssessor.test.jsx": {
+    "mtime": 1794082339.9650295,
+    "seen": 1795302318.070486,
+    "ast_hash": "e7fe7c7778915c014c155bf0698d4d05",
+    "semantic_hash": "e7fe7c7778915c014c155bf0698d4d05"
+  },
+  "client/src/__tests__/pautaSecretario.test.jsx": {
+    "mtime": 1794281360.5034754,
+    "seen": 1795302318.070488,
+    "ast_hash": "4127d5817055dddf7c4eee64085f8526",
+    "semantic_hash": "4127d5817055dddf7c4eee64085f8526"
+  },
+  "client/src/__tests__/scaffold.test.jsx": {
+    "mtime": 1794082319.137664,
+    "seen": 1795302318.0704901,
+    "ast_hash": "c590cf36b57ed59a78b09861e81f3da5",
+    "semantic_hash": "c590cf36b57ed59a78b09861e81f3da5"
+  },
+  "client/src/__tests__/tv.test.jsx": {
+    "mtime": 1795409766.4671993,
+    "seen": 1795449953.1097112,
+    "ast_hash": "120104de6a9f6523520d0e334636abf2",
+    "semantic_hash": "120104de6a9f6523520d0e334636abf2"
+  },
+  "client/src/components/AssessoresTab.jsx": {
+    "mtime": 1794193990.578023,
+    "seen": 1795302318.070494,
+    "ast_hash": "1be869caff308d733a74db50fefb6139",
+    "semantic_hash": "1be869caff308d733a74db50fefb6139"
+  },
+  "client/src/components/Identificacao.jsx": {
+    "mtime": 1795409711.5054722,
+    "seen": 1795449953.1097221,
+    "ast_hash": "7e04be9018fb2fe783720204067b10ac",
+    "semantic_hash": "7e04be9018fb2fe783720204067b10ac"
+  },
+  "client/src/components/ListaReunioes.jsx": {
+    "mtime": 1794281336.112012,
+    "seen": 1795302318.070498,
+    "ast_hash": "25dd493ce55340a69d43ac20c02f9849",
+    "semantic_hash": "25dd493ce55340a69d43ac20c02f9849"
+  },
+  "client/src/components/PautaAssessor.jsx": {
+    "mtime": 1795446142.5390162,
+    "seen": 1795449953.109726,
+    "ast_hash": "9b0dd50e29b91804fa2bf6e696f26387",
+    "semantic_hash": "9b0dd50e29b91804fa2bf6e696f26387"
+  },
+  "client/src/components/PautaSecretario.jsx": {
+    "mtime": 1795407985.4350262,
+    "seen": 1795449953.109728,
+    "ast_hash": "71d601ab412b1c752a8a3b9f3e178e5d",
+    "semantic_hash": "71d601ab412b1c752a8a3b9f3e178e5d"
+  },
+  "client/src/components/PresentesTab.jsx": {
+    "mtime": 1794364024.075882,
+    "seen": 1795302318.070503,
+    "ast_hash": "26da9dbf505a586a384d58541efef543",
+    "semantic_hash": "26da9dbf505a586a384d58541efef543"
+  },
+  "client/src/components/RegistroVista.jsx": {
+    "mtime": 1795407985.4372885,
+    "seen": 1795449953.109735,
+    "ast_hash": "722e63a6eaa43c148518ce6f672fdfcd",
+    "semantic_hash": "722e63a6eaa43c148518ce6f672fdfcd"
+  },
+  "client/src/components/TvDisplay.jsx": {
+    "mtime": 1795409793.9030569,
+    "seen": 1795449953.109736,
+    "ast_hash": "642ef4cc5b24afc736c90911fdd8a0a7",
+    "semantic_hash": "642ef4cc5b24afc736c90911fdd8a0a7"
+  },
+  "client/src/components/VotacaoBloco.jsx": {
+    "mtime": 1795407985.4490926,
+    "seen": 1795449953.10974,
+    "ast_hash": "1dbfda6a525accf7644eda07705a004f",
+    "semantic_hash": "1dbfda6a525accf7644eda07705a004f"
+  },
+  "client/src/context/AuthContext.jsx": {
+    "mtime": 1794281765.4873457,
+    "seen": 1795302318.070511,
+    "ast_hash": "3a06c57a3481c085c8074b9c029f7d34",
+    "semantic_hash": "3a06c57a3481c085c8074b9c029f7d34"
+  },
+  "client/src/hooks/useLegisApi.js": {
+    "mtime": 1794082100.6105802,
+    "seen": 1795302318.070512,
+    "ast_hash": "3ce24071c24457de3610ac6d99a94fba",
+    "semantic_hash": "3ce24071c24457de3610ac6d99a94fba"
+  },
+  "client/src/hooks/useProcessoLinks.js": {
+    "mtime": 1794181745.6473012,
+    "seen": 1795302318.070515,
+    "ast_hash": "dcb617ffcc300716ada7a4082bef38af",
+    "semantic_hash": "dcb617ffcc300716ada7a4082bef38af"
+  },
+  "client/src/hooks/useSocket.js": {
+    "mtime": 1794085925.5226297,
+    "seen": 1795302318.0705159,
+    "ast_hash": "8c91de74772b81564f220b8e49db665a",
+    "semantic_hash": "8c91de74772b81564f220b8e49db665a"
+  },
+  "client/src/lib/legisLinks.js": {
+    "mtime": 1794181713.3954666,
+    "seen": 1795302318.070518,
+    "ast_hash": "fa32497054bc4e8651bb1b663e8c7999",
+    "semantic_hash": "fa32497054bc4e8651bb1b663e8c7999"
+  },
+  "client/src/main.jsx": {
+    "mtime": 1794082049.3068426,
+    "seen": 1795302318.0705202,
+    "ast_hash": "e13723e2574429d9a6d849727e3ff695",
+    "semantic_hash": "e13723e2574429d9a6d849727e3ff695"
+  },
+  "client/src/setupTests.js": {
+    "mtime": 1794082065.492592,
+    "seen": 1795302318.070522,
+    "ast_hash": "2c271435e60d9aeb6cd3a5e1e122a5c0",
+    "semantic_hash": "2c271435e60d9aeb6cd3a5e1e122a5c0"
+  },
+  "client/tailwind.config.js": {
+    "mtime": 1794082065.466463,
+    "seen": 1795302318.070524,
+    "ast_hash": "b3a47dc57458ca64bb39130c57c1d145",
+    "semantic_hash": "b3a47dc57458ca64bb39130c57c1d145"
+  },
+  "client/vite.config.js": {
+    "mtime": 1795409766.467247,
+    "seen": 1795449953.109762,
+    "ast_hash": "8b8bfba2faf4192c305589bf9bb87a6b",
+    "semantic_hash": "8b8bfba2faf4192c305589bf9bb87a6b"
+  },
+  "package.json": {
+    "mtime": 1794233394.7857883,
+    "seen": 1795302318.070527,
+    "ast_hash": "68825e7bdc5e6b6532b5609c961123e6",
+    "semantic_hash": "68825e7bdc5e6b6532b5609c961123e6"
+  },
+  "server/package.json": {
+    "mtime": 1794196056.062481,
+    "seen": 1795302318.070529,
+    "ast_hash": "d9f9fbe4a68b08da4cd71175a9dd01bb",
+    "semantic_hash": "d9f9fbe4a68b08da4cd71175a9dd01bb"
+  },
+  "server/src/__tests__/db.test.js": {
+    "mtime": 1794082614.416212,
+    "seen": 1795302318.0705311,
+    "ast_hash": "521d32c532404488d0d8e17be557a53e",
+    "semantic_hash": "521d32c532404488d0d8e17be557a53e"
+  },
+  "server/src/__tests__/legis.test.js": {
+    "mtime": 1794082618.464313,
+    "seen": 1795302318.070533,
+    "ast_hash": "7e3cc6bf2a2eca5e7a0cda8156246772",
+    "semantic_hash": "7e3cc6bf2a2eca5e7a0cda8156246772"
+  },
+  "server/src/__tests__/pdf.test.js": {
+    "mtime": 1794082625.8789203,
+    "seen": 1795302318.070534,
+    "ast_hash": "e45ce7fbce4890f8f4bb9d2d7568d2e6",
+    "semantic_hash": "e45ce7fbce4890f8f4bb9d2d7568d2e6"
+  },
+  "server/src/__tests__/presenca.test.js": {
+    "mtime": 1794281281.9209132,
+    "seen": 1795302318.070536,
+    "ast_hash": "cf26fc0238d0309bf6328b8b5a663677",
+    "semantic_hash": "cf26fc0238d0309bf6328b8b5a663677"
+  },
+  "server/src/__tests__/rooms.test.js": {
+    "mtime": 1794082632.7590182,
+    "seen": 1795302318.070538,
+    "ast_hash": "7ad3dd1dfb1e061f3d8fef80b8efe5a2",
+    "semantic_hash": "7ad3dd1dfb1e061f3d8fef80b8efe5a2"
+  },
+  "server/src/__tests__/vinculo.test.js": {
+    "mtime": 1794281286.1989853,
+    "seen": 1795302318.070543,
+    "ast_hash": "dd9fe55525891a56e934cab2f78224f7",
+    "semantic_hash": "dd9fe55525891a56e934cab2f78224f7"
+  },
+  "server/src/auth.js": {
+    "mtime": 1794281227.8750424,
+    "seen": 1795302318.070546,
+    "ast_hash": "a2588f7c6fa668345e097c558f22665b",
+    "semantic_hash": "a2588f7c6fa668345e097c558f22665b"
+  },
+  "server/src/db.js": {
+    "mtime": 1794320330.7754369,
+    "seen": 1795302318.0705469,
+    "ast_hash": "febee7fbc7e9f343606ef2a4cd573a03",
+    "semantic_hash": "febee7fbc7e9f343606ef2a4cd573a03"
+  },
+  "server/src/index.js": {
+    "mtime": 1794268767.5541,
+    "seen": 1795302318.070549,
+    "ast_hash": "e91513e1024686a6ad6d031d5b244841",
+    "semantic_hash": "e91513e1024686a6ad6d031d5b244841"
+  },
+  "server/src/legisClient.js": {
+    "mtime": 1794364024.0846002,
+    "seen": 1795302318.0705512,
+    "ast_hash": "e465ff44809a33f25d285c7262c8cde8",
+    "semantic_hash": "e465ff44809a33f25d285c7262c8cde8"
+  },
+  "server/src/pdf/report.js": {
+    "mtime": 1795409575.9922915,
+    "seen": 1795449953.109793,
+    "ast_hash": "0e40a0c642cdb39e86230316a7cd8770",
+    "semantic_hash": "0e40a0c642cdb39e86230316a7cd8770"
+  },
+  "server/src/routes/legis.js": {
+    "mtime": 1794236802.1717849,
+    "seen": 1795302318.070554,
+    "ast_hash": "e3ccdbdc7b2c1d2d0b6aa2924283f290",
+    "semantic_hash": "e3ccdbdc7b2c1d2d0b6aa2924283f290"
+  },
+  "server/src/routes/meeting.js": {
+    "mtime": 1795409580.983774,
+    "seen": 1795449953.109797,
+    "ast_hash": "3ed50f8773afbf5f2ac9929092b35c20",
+    "semantic_hash": "3ed50f8773afbf5f2ac9929092b35c20"
+  },
+  "server/src/socket/meetingHandler.js": {
+    "mtime": 1794082262.9333265,
+    "seen": 1795302318.07056,
+    "ast_hash": "d885123891a55ea4ceb9ea815a97b5e5",
+    "semantic_hash": "d885123891a55ea4ceb9ea815a97b5e5"
+  },
+  "server/src/socket/rooms.js": {
+    "mtime": 1794082258.5583942,
+    "seen": 1795302318.070561,
+    "ast_hash": "4dfa763b577d87a662e822dfbbadfd93",
+    "semantic_hash": "4dfa763b577d87a662e822dfbbadfd93"
+  },
+  "README.md": {
+    "mtime": 1794082025.950554,
+    "seen": 1795302318.070564,
+    "ast_hash": "84ff0303cf289d8900a67a0ca3a7dbf9",
+    "semantic_hash": "84ff0303cf289d8900a67a0ca3a7dbf9"
+  },
+  "client/README.md": {
+    "mtime": 1794082049.2920704,
+    "seen": 1795302318.070566,
+    "ast_hash": "1dfcb98fb0236ca209793b23d90c2d2a",
+    "semantic_hash": "1dfcb98fb0236ca209793b23d90c2d2a"
+  },
+  "client/index.html": {
+    "mtime": 1794082309.7614236,
+    "seen": 1795302318.0705678,
+    "ast_hash": "deefa519cd1158633f56955f45a0a08d",
+    "semantic_hash": "deefa519cd1158633f56955f45a0a08d"
+  },
+  "docs/superpowers/plans/2026-11-07-comissoes-ao-vivo-2.md": {
+    "mtime": 1794081857.0556252,
+    "seen": 1795302318.070569,
+    "ast_hash": "df33f0696dd7be901686d94995ee7a0d",
+    "semantic_hash": "df33f0696dd7be901686d94995ee7a0d"
+  },
+  "docs/superpowers/plans/2026-11-08-ajustes-7.md": {
+    "mtime": 1794155627.878806,
+    "seen": 1795302318.070571,
+    "ast_hash": "dbd0864eb9e09adb6581671b9d74eb2b",
+    "semantic_hash": "dbd0864eb9e09adb6581671b9d74eb2b"
+  },
+  "docs/superpowers/plans/2026-11-10-hardening-producao.md": {
+    "mtime": 1794280601.8642538,
+    "seen": 1795302318.070573,
+    "ast_hash": "e64042ce81ef8c5bb9354f94d5a018aa",
+    "semantic_hash": "e64042ce81ef8c5bb9354f94d5a018aa"
+  },
+  "docs/superpowers/specs/2026-11-07-comissoes-ao-vivo-2-design.md": {
+    "mtime": 1794081681.7571456,
+    "seen": 1795302318.070575,
+    "ast_hash": "f13586702e5445213e79d922ce3345b8",
+    "semantic_hash": "f13586702e5445213e79d922ce3345b8"
+  },
+  "client/public/vite.svg": {
+    "mtime": 1794082049.2993586,
+    "seen": 1795302318.070577,
+    "ast_hash": "8e3a10e157f75ada21ab742c022d5430",
+    "semantic_hash": "8e3a10e157f75ada21ab742c022d5430"
+  },
+  "client/src/assets/react.svg": {
+    "mtime": 1794082049.3044076,
+    "seen": 1795302318.070579,
+    "ast_hash": "f0402b67b6ce880f65666bb49e841696",
+    "semantic_hash": "f0402b67b6ce880f65666bb49e841696"
+  },
+  "client/src/__tests__/acompanhamento.test.jsx": {
+    "mtime": 1795446544.7343247,
+    "seen": 1795449953.109681,
+    "ast_hash": "d47e02b3e559be727cb5f07e3fd62a4f",
+    "semantic_hash": "d47e02b3e559be727cb5f07e3fd62a4f"
+  },
+  "client/src/__tests__/collapseViews.test.jsx": {
+    "mtime": 1795446009.8851173,
+    "seen": 1795449953.109683,
+    "ast_hash": "00a780e81656c25729ff3a5756637273",
+    "semantic_hash": "00a780e81656c25729ff3a5756637273"
+  },
+  "client/src/__tests__/headerPublico.test.jsx": {
+    "mtime": 1795446287.4595942,
+    "seen": 1795449953.109685,
+    "ast_hash": "479f5c97705c75b47809ab29f79e40fc",
+    "semantic_hash": "479f5c97705c75b47809ab29f79e40fc"
+  },
+  "client/src/__tests__/itemCollapse.test.jsx": {
+    "mtime": 1795445968.0294096,
+    "seen": 1795449953.109691,
+    "ast_hash": "eea69b49921ecbe9aacd421d95055cb5",
+    "semantic_hash": "eea69b49921ecbe9aacd421d95055cb5"
+  },
+  "client/src/__tests__/pautaRouter.test.jsx": {
+    "mtime": 1795409680.67355,
+    "seen": 1795449953.1097019,
+    "ast_hash": "d7ebcfc7e7378ff86e877caea07abc88",
+    "semantic_hash": "d7ebcfc7e7378ff86e877caea07abc88"
+  },
+  "client/src/__tests__/presencasPublicas.test.jsx": {
+    "mtime": 1795446997.9539664,
+    "seen": 1795449953.109706,
+    "ast_hash": "0cadeafbcce2f327e6fdbf7da9583270",
+    "semantic_hash": "0cadeafbcce2f327e6fdbf7da9583270"
+  },
+  "client/src/__tests__/tvLayout.test.jsx": {
+    "mtime": 1795409752.1556778,
+    "seen": 1795449953.109714,
+    "ast_hash": "5b5b598bfeaf7b853390aad086ee86eb",
+    "semantic_hash": "5b5b598bfeaf7b853390aad086ee86eb"
+  },
+  "client/src/__tests__/tvQrBadge.test.jsx": {
+    "mtime": 1795409752.1558015,
+    "seen": 1795449953.109716,
+    "ast_hash": "6790ef088245e455d66707320ea1d1ec",
+    "semantic_hash": "6790ef088245e455d66707320ea1d1ec"
+  },
+  "client/src/components/Acompanhamento.jsx": {
+    "mtime": 1795446573.1356142,
+    "seen": 1795449953.109718,
+    "ast_hash": "283ea8036e9dddbcb83eccfd426687e6",
+    "semantic_hash": "283ea8036e9dddbcb83eccfd426687e6"
+  },
+  "client/src/components/PresencasPublicas.jsx": {
+    "mtime": 1795447018.2792974,
+    "seen": 1795449953.10973,
+    "ast_hash": "6cb3354abebeadc4f11afea4dd2789a4",
+    "semantic_hash": "6cb3354abebeadc4f11afea4dd2789a4"
+  },
+  "client/src/components/TvQrBadge.jsx": {
+    "mtime": 1795409797.335725,
+    "seen": 1795449953.1097379,
+    "ast_hash": "09344d75196a0ff83dcba3486ed9342c",
+    "semantic_hash": "09344d75196a0ff83dcba3486ed9342c"
+  },
+  "client/src/lib/itemCollapse.js": {
+    "mtime": 1795445988.721702,
+    "seen": 1795449953.109751,
+    "ast_hash": "9b96ab64b3cd142d992e32449dda0a43",
+    "semantic_hash": "9b96ab64b3cd142d992e32449dda0a43"
+  },
+  "server/src/__tests__/publicReport.test.js": {
+    "mtime": 1795409556.0404022,
+    "seen": 1795449953.109778,
+    "ast_hash": "86794d6d0eaf02df23c5158c0eef6335",
+    "semantic_hash": "86794d6d0eaf02df23c5158c0eef6335"
+  },
+  "docs/superpowers/plans/2026-11-23-acompanhamento-anonimo-tv.md": {
+    "mtime": 1795409427.0806417,
+    "seen": 1795449953.109817,
+    "ast_hash": "dd31a02d37176a5f9ec10f2bc9d2168a",
+    "semantic_hash": "dd31a02d37176a5f9ec10f2bc9d2168a"
+  },
+  "docs/superpowers/plans/2026-11-23-collapse-presencas-anonimo.md": {
+    "mtime": 1795445873.8965688,
+    "seen": 1795449953.109819,
+    "ast_hash": "5636a08401410684de05bbab024de6e4",
+    "semantic_hash": "5636a08401410684de05bbab024de6e4"
+  },
+  "docs/superpowers/specs/2026-11-23-acompanhamento-anonimo-tv-design.md": {
+    "mtime": 1795408928.9223454,
+    "seen": 1795449953.109823,
+    "ast_hash": "5387626f2f506bb925447eefeaf270bb",
+    "semantic_hash": "5387626f2f506bb925447eefeaf270bb"
+  },
+  "docs/superpowers/specs/2026-11-23-collapse-presencas-anonimo-design.md": {
+    "mtime": 1795445766.767249,
+    "seen": 1795449953.1098251,
+    "ast_hash": "e5c8c53c5e4cfba7f2c72896eaa3dbc0",
+    "semantic_hash": "e5c8c53c5e4cfba7f2c72896eaa3dbc0"
+  }
+}

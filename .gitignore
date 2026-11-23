@@ -7,3 +7,11 @@ dist/
 .env
 .DS_Store
 .superpowers/
+
+# graphify: estado interno de build (específico da máquina); versionar só os artefatos gerados
+graphify-out/cache/
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/.graphify_*.json
+!graphify-out/.graphify_labels.json
+graphify-out/.needs_update
