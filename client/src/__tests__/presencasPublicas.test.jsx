@@ -62,3 +62,24 @@ test('empty roster still renders other present parliamentarians without crashing
   expect(await screen.findByText(/Outro Parlamentar/)).toBeTruthy()
   vi.unstubAllGlobals()
 })
+
+test('navigating to a meeting with empty colegiados clears the previous roster', async () => {
+  let id = '1'
+  vi.stubGlobal('fetch', async (url) => {
+    const u = String(url)
+    if (u.includes('/presencas')) return { json: async () => id==='1'
+      ? [{ id:1, name:'Gil Diniz', confirmed:true, origem:'login' }]
+      : [{ id:3, name:'Outro Parlamentar', confirmed:true, origem:'manual' }] }
+    if (u.includes('/colegiados/')) return { json: async () => [{ parlamentar:'Gil Diniz', ocupacao:'Efetivo', federacao:'PA' }] }
+    if (u.includes('/parlamentares-ativos')) return { json: async () => [{ nome:'Outro Parlamentar', partido:'PD' }] }
+    if (u.includes('/api/reuniao/')) return { json: async () => ({ colegiadosRelacionados: id==='1' ? [{ id:'c1' }] : [] }) }
+    return { json: async () => [] }
+  })
+  const { rerender } = render(<PresencasPublicas idReuniao="1" />)
+  expect(await screen.findByText(/Gil Diniz/)).toBeTruthy()
+  id = '2'
+  rerender(<PresencasPublicas idReuniao="2" />)
+  expect(await screen.findByText(/Outro Parlamentar/)).toBeTruthy()
+  expect(screen.queryByText(/Gil Diniz/)).toBeFalsy()
+  vi.unstubAllGlobals()
+})

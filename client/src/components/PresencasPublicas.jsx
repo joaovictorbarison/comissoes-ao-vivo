@@ -25,24 +25,22 @@ export default function PresencasPublicas({ idReuniao }) {
     if (!r || r.ok === false) return
     const j = await r.json().catch(()=>({}))
     const ids = (j.colegiadosRelacionados || []).map(c=>c.id).filter(Boolean)
-    if (ids.length) {
-      const seen = new Map()
-      for (const cid of ids) {
-        const mr = await fetch(`/api/legis/colegiados/${cid}/membros`).catch(()=>null)
-        if (!mr) continue
-        const arr = await mr.json().catch(()=>[])
-        arr.forEach(p=>{
-          const mat = p.nuMatriculaParlamentar || p.parlamentar
-          if (!seen.has(mat)) seen.set(mat, p)
-          else {
-            const cur = seen.get(mat)
-            const isEfet = (v)=> /efetivo|presidente|vice/i.test(v||'')
-            if (isEfet(p.ocupacao) && !isEfet(cur.ocupacao)) seen.set(mat, p)
-          }
-        })
-      }
-      setMembros([...seen.values()])
+    const seen = new Map()
+    for (const cid of ids) {
+      const mr = await fetch(`/api/legis/colegiados/${cid}/membros`).catch(()=>null)
+      if (!mr) continue
+      const arr = await mr.json().catch(()=>[])
+      arr.forEach(p=>{
+        const mat = p.nuMatriculaParlamentar || p.parlamentar
+        if (!seen.has(mat)) seen.set(mat, p)
+        else {
+          const cur = seen.get(mat)
+          const isEfet = (v)=> /efetivo|presidente|vice/i.test(v||'')
+          if (isEfet(p.ocupacao) && !isEfet(cur.ocupacao)) seen.set(mat, p)
+        }
+      })
     }
+    setMembros([...seen.values()])
     const pr = await fetch(`/api/legis/parlamentares-ativos`).catch(()=>null)
     if (pr) {
       const arr = await pr.json().catch(()=>[])
