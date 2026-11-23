@@ -5,15 +5,17 @@ import Identificacao from './components/Identificacao.jsx'
 import ListaReunioes from './components/ListaReunioes.jsx'
 import PautaAssessor from './components/PautaAssessor.jsx'
 import PautaSecretario from './components/PautaSecretario.jsx'
+import Acompanhamento from './components/Acompanhamento.jsx'
 import VotacaoBloco from './components/VotacaoBloco.jsx'
 import RegistroVista from './components/RegistroVista.jsx'
 import TvDisplay from './components/TvDisplay.jsx'
 import { useAuth } from './context/AuthContext.jsx'
 
-function PautaRouter() {
+export function PautaRouter() {
   const { profile } = useAuth()
   if (profile === 'secretario') return <PautaSecretario />
-  return <PautaAssessor />
+  if (profile === 'deputado' || profile === 'assessor') return <PautaAssessor />
+  return <Acompanhamento />
 }
 
 function Header() {
@@ -27,7 +29,8 @@ function Header() {
   const base = {
     secretario: 'Comissões Ao Vivo - Painel do Secretário',
     deputado: 'Comissões Ao Vivo - Painel do Parlamentar',
-    assessor: 'Comissões Ao Vivo - Painel de Assessoria'
+    assessor: 'Comissões Ao Vivo - Painel de Assessoria',
+    anonimo: 'Comissões Ao Vivo - Acompanhamento'
   }[profile] || 'Comissões Ao Vivo'
   const subtitle = (profile==='deputado' || profile==='assessor') && name ? `${base} - ${name}` : base
 

@@ -97,6 +97,12 @@ export default function Identificacao() {
       </>)}
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
       <button type="submit" className="w-full bg-alesp text-white rounded-lg p-3 font-bold">Continuar</button>
+      <div className="border-t mt-4 pt-4">
+        <button type="button" onClick={()=>{ setAuth('anonimo','Visitante',null,null); navigate('/reunioes') }} className="w-full bg-slate-100 text-slate-700 rounded-lg p-3 font-bold">
+          Acompanhar sem identificação
+        </button>
+        <p className="text-xs text-slate-500 mt-2 text-center">Acompanhe a reunião como cidadão, sem login.</p>
+      </div>
     </form>
   )
 }
